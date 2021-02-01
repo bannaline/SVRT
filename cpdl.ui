@@ -1,0 +1,687 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>Cpdl</class>
+ <widget class="QDialog" name="Cpdl">
+  <property name="windowModality">
+   <enum>Qt::ApplicationModal</enum>
+  </property>
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>581</width>
+    <height>467</height>
+   </rect>
+  </property>
+  <property name="font">
+   <font>
+    <family>맑은 고딕</family>
+   </font>
+  </property>
+  <property name="windowTitle">
+   <string>Card Pack&amp;Deck List</string>
+  </property>
+  <widget class="QGroupBox" name="groupBox">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>581</width>
+     <height>571</height>
+    </rect>
+   </property>
+   <widget class="QGroupBox" name="groupBox_2">
+    <property name="geometry">
+     <rect>
+      <x>10</x>
+      <y>60</y>
+      <width>141</width>
+      <height>201</height>
+     </rect>
+    </property>
+    <property name="title">
+     <string>엘프</string>
+    </property>
+    <widget class="QListWidget" name="listelf">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>50</y>
+       <width>121</width>
+       <height>141</height>
+      </rect>
+     </property>
+     <property name="dragDropMode">
+      <enum>QAbstractItemView::InternalMove</enum>
+     </property>
+    </widget>
+    <widget class="QPushButton" name="pushelfp">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>20</y>
+       <width>41</width>
+       <height>23</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>elfp</string>
+     </property>
+    </widget>
+    <widget class="QPushButton" name="pushelfm">
+     <property name="geometry">
+      <rect>
+       <x>50</x>
+       <y>20</y>
+       <width>41</width>
+       <height>23</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>elfm</string>
+     </property>
+    </widget>
+    <widget class="QPushButton" name="pushelfr">
+     <property name="geometry">
+      <rect>
+       <x>90</x>
+       <y>20</y>
+       <width>41</width>
+       <height>23</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>elfr</string>
+     </property>
+    </widget>
+   </widget>
+   <widget class="QGroupBox" name="groupBox_3">
+    <property name="geometry">
+     <rect>
+      <x>150</x>
+      <y>60</y>
+      <width>141</width>
+      <height>201</height>
+     </rect>
+    </property>
+    <property name="title">
+     <string>로얄</string>
+    </property>
+    <widget class="QListWidget" name="listroyal">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>50</y>
+       <width>121</width>
+       <height>141</height>
+      </rect>
+     </property>
+     <property name="dragDropMode">
+      <enum>QAbstractItemView::InternalMove</enum>
+     </property>
+    </widget>
+    <widget class="QPushButton" name="pushroyalm">
+     <property name="geometry">
+      <rect>
+       <x>50</x>
+       <y>20</y>
+       <width>41</width>
+       <height>23</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>royalm</string>
+     </property>
+    </widget>
+    <widget class="QPushButton" name="pushroyalp">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>20</y>
+       <width>41</width>
+       <height>23</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>royalp</string>
+     </property>
+    </widget>
+    <widget class="QPushButton" name="pushroyalr">
+     <property name="geometry">
+      <rect>
+       <x>90</x>
+       <y>20</y>
+       <width>41</width>
+       <height>23</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>royalr</string>
+     </property>
+    </widget>
+   </widget>
+   <widget class="QGroupBox" name="groupBox_6">
+    <property name="geometry">
+     <rect>
+      <x>10</x>
+      <y>10</y>
+      <width>181</width>
+      <height>41</height>
+     </rect>
+    </property>
+    <property name="title">
+     <string>모드</string>
+    </property>
+    <widget class="QRadioButton" name="radiorota">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>17</y>
+       <width>81</width>
+       <height>16</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>로테이션</string>
+     </property>
+     <property name="checked">
+      <bool>true</bool>
+     </property>
+    </widget>
+    <widget class="QRadioButton" name="radiounli">
+     <property name="geometry">
+      <rect>
+       <x>90</x>
+       <y>17</y>
+       <width>90</width>
+       <height>16</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>언리미티드</string>
+     </property>
+    </widget>
+   </widget>
+   <widget class="QGroupBox" name="groupBox_7">
+    <property name="geometry">
+     <rect>
+      <x>190</x>
+      <y>10</y>
+      <width>381</width>
+      <height>41</height>
+     </rect>
+    </property>
+    <property name="title">
+     <string>카드팩</string>
+    </property>
+    <widget class="QComboBox" name="combocp">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>15</y>
+       <width>76</width>
+       <height>22</height>
+      </rect>
+     </property>
+    </widget>
+    <widget class="QCheckBox" name="checkmini">
+     <property name="geometry">
+      <rect>
+       <x>96</x>
+       <y>17</y>
+       <width>71</width>
+       <height>16</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>미니팩</string>
+     </property>
+    </widget>
+    <widget class="QPushButton" name="pushcpa">
+     <property name="geometry">
+      <rect>
+       <x>157</x>
+       <y>13</y>
+       <width>41</width>
+       <height>23</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>추가</string>
+     </property>
+    </widget>
+    <widget class="QPushButton" name="pushcpd">
+     <property name="geometry">
+      <rect>
+       <x>197</x>
+       <y>13</y>
+       <width>41</width>
+       <height>23</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>삭제</string>
+     </property>
+    </widget>
+    <widget class="QPushButton" name="pushcpm">
+     <property name="geometry">
+      <rect>
+       <x>237</x>
+       <y>13</y>
+       <width>101</width>
+       <height>23</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>현재팩으로 설정</string>
+     </property>
+    </widget>
+    <widget class="QPushButton" name="pushsave">
+     <property name="geometry">
+      <rect>
+       <x>337</x>
+       <y>13</y>
+       <width>41</width>
+       <height>23</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>저장</string>
+     </property>
+    </widget>
+   </widget>
+   <widget class="QGroupBox" name="groupBox_4">
+    <property name="geometry">
+     <rect>
+      <x>290</x>
+      <y>60</y>
+      <width>141</width>
+      <height>201</height>
+     </rect>
+    </property>
+    <property name="title">
+     <string>위치</string>
+    </property>
+    <widget class="QListWidget" name="listwitch">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>50</y>
+       <width>121</width>
+       <height>141</height>
+      </rect>
+     </property>
+     <property name="dragDropMode">
+      <enum>QAbstractItemView::InternalMove</enum>
+     </property>
+    </widget>
+    <widget class="QPushButton" name="pushwitchp">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>20</y>
+       <width>41</width>
+       <height>23</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>witchp</string>
+     </property>
+    </widget>
+    <widget class="QPushButton" name="pushwitchm">
+     <property name="geometry">
+      <rect>
+       <x>50</x>
+       <y>20</y>
+       <width>41</width>
+       <height>23</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>witchm</string>
+     </property>
+    </widget>
+    <widget class="QPushButton" name="pushwitchr">
+     <property name="geometry">
+      <rect>
+       <x>90</x>
+       <y>20</y>
+       <width>41</width>
+       <height>23</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>witchr</string>
+     </property>
+    </widget>
+   </widget>
+   <widget class="QGroupBox" name="groupBox_5">
+    <property name="geometry">
+     <rect>
+      <x>430</x>
+      <y>60</y>
+      <width>141</width>
+      <height>201</height>
+     </rect>
+    </property>
+    <property name="title">
+     <string>비숍</string>
+    </property>
+    <widget class="QListWidget" name="listbishop">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>50</y>
+       <width>121</width>
+       <height>141</height>
+      </rect>
+     </property>
+     <property name="dragDropMode">
+      <enum>QAbstractItemView::InternalMove</enum>
+     </property>
+    </widget>
+    <widget class="QPushButton" name="pushbishopp">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>20</y>
+       <width>41</width>
+       <height>23</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>bishopp</string>
+     </property>
+    </widget>
+    <widget class="QPushButton" name="pushbishopm">
+     <property name="geometry">
+      <rect>
+       <x>50</x>
+       <y>20</y>
+       <width>41</width>
+       <height>23</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>bishopm</string>
+     </property>
+    </widget>
+    <widget class="QPushButton" name="pushbishopr">
+     <property name="geometry">
+      <rect>
+       <x>90</x>
+       <y>20</y>
+       <width>41</width>
+       <height>23</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>bishopr</string>
+     </property>
+    </widget>
+   </widget>
+   <widget class="QGroupBox" name="groupBox_11">
+    <property name="geometry">
+     <rect>
+      <x>430</x>
+      <y>260</y>
+      <width>141</width>
+      <height>201</height>
+     </rect>
+    </property>
+    <property name="title">
+     <string>네메시스</string>
+    </property>
+    <widget class="QListWidget" name="listneme">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>50</y>
+       <width>121</width>
+       <height>141</height>
+      </rect>
+     </property>
+     <property name="dragDropMode">
+      <enum>QAbstractItemView::InternalMove</enum>
+     </property>
+    </widget>
+    <widget class="QPushButton" name="pushnemep">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>20</y>
+       <width>41</width>
+       <height>23</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>nemep</string>
+     </property>
+    </widget>
+    <widget class="QPushButton" name="pushnemem">
+     <property name="geometry">
+      <rect>
+       <x>50</x>
+       <y>20</y>
+       <width>41</width>
+       <height>23</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>nemem</string>
+     </property>
+    </widget>
+    <widget class="QPushButton" name="pushnemer">
+     <property name="geometry">
+      <rect>
+       <x>90</x>
+       <y>20</y>
+       <width>41</width>
+       <height>23</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>nemer</string>
+     </property>
+    </widget>
+   </widget>
+   <widget class="QGroupBox" name="groupBox_9">
+    <property name="geometry">
+     <rect>
+      <x>290</x>
+      <y>260</y>
+      <width>141</width>
+      <height>201</height>
+     </rect>
+    </property>
+    <property name="title">
+     <string>뱀파이어</string>
+    </property>
+    <widget class="QListWidget" name="listvamp">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>50</y>
+       <width>121</width>
+       <height>141</height>
+      </rect>
+     </property>
+     <property name="dragDropMode">
+      <enum>QAbstractItemView::InternalMove</enum>
+     </property>
+    </widget>
+    <widget class="QPushButton" name="pushvampp">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>20</y>
+       <width>41</width>
+       <height>23</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>vampp</string>
+     </property>
+    </widget>
+    <widget class="QPushButton" name="pushvampm">
+     <property name="geometry">
+      <rect>
+       <x>50</x>
+       <y>20</y>
+       <width>41</width>
+       <height>23</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>vampm</string>
+     </property>
+    </widget>
+    <widget class="QPushButton" name="pushvampr">
+     <property name="geometry">
+      <rect>
+       <x>90</x>
+       <y>20</y>
+       <width>41</width>
+       <height>23</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>vampr</string>
+     </property>
+    </widget>
+   </widget>
+   <widget class="QGroupBox" name="groupBox_10">
+    <property name="geometry">
+     <rect>
+      <x>150</x>
+      <y>260</y>
+      <width>141</width>
+      <height>201</height>
+     </rect>
+    </property>
+    <property name="title">
+     <string>드래곤</string>
+    </property>
+    <widget class="QListWidget" name="listdra">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>50</y>
+       <width>121</width>
+       <height>141</height>
+      </rect>
+     </property>
+     <property name="dragDropMode">
+      <enum>QAbstractItemView::InternalMove</enum>
+     </property>
+    </widget>
+    <widget class="QPushButton" name="pushdram">
+     <property name="geometry">
+      <rect>
+       <x>50</x>
+       <y>20</y>
+       <width>41</width>
+       <height>23</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>dram</string>
+     </property>
+    </widget>
+    <widget class="QPushButton" name="pushdrap">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>20</y>
+       <width>41</width>
+       <height>23</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>drap</string>
+     </property>
+    </widget>
+    <widget class="QPushButton" name="pushdrar">
+     <property name="geometry">
+      <rect>
+       <x>90</x>
+       <y>20</y>
+       <width>41</width>
+       <height>23</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>drar</string>
+     </property>
+    </widget>
+   </widget>
+   <widget class="QGroupBox" name="groupBox_8">
+    <property name="geometry">
+     <rect>
+      <x>10</x>
+      <y>260</y>
+      <width>141</width>
+      <height>201</height>
+     </rect>
+    </property>
+    <property name="title">
+     <string>네크로맨서</string>
+    </property>
+    <widget class="QListWidget" name="listnec">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>50</y>
+       <width>121</width>
+       <height>141</height>
+      </rect>
+     </property>
+     <property name="dragDropMode">
+      <enum>QAbstractItemView::InternalMove</enum>
+     </property>
+    </widget>
+    <widget class="QPushButton" name="pushnecp">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>20</y>
+       <width>41</width>
+       <height>23</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>necp</string>
+     </property>
+    </widget>
+    <widget class="QPushButton" name="pushnecm">
+     <property name="geometry">
+      <rect>
+       <x>50</x>
+       <y>20</y>
+       <width>41</width>
+       <height>23</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>necm</string>
+     </property>
+    </widget>
+    <widget class="QPushButton" name="pushnecr">
+     <property name="geometry">
+      <rect>
+       <x>90</x>
+       <y>20</y>
+       <width>41</width>
+       <height>23</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>necr</string>
+     </property>
+    </widget>
+   </widget>
+  </widget>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>
