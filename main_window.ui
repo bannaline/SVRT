@@ -2543,6 +2543,9 @@
        <string>모드</string>
       </property>
       <widget class="QRadioButton" name="radioautoRota">
+       <property name="enabled">
+        <bool>false</bool>
+       </property>
        <property name="geometry">
         <rect>
          <x>10</x>
@@ -2559,6 +2562,9 @@
        </property>
       </widget>
       <widget class="QRadioButton" name="radioautoUnli">
+       <property name="enabled">
+        <bool>false</bool>
+       </property>
        <property name="geometry">
         <rect>
          <x>90</x>
@@ -3056,6 +3062,9 @@
        </property>
        <property name="text">
         <string>고정</string>
+       </property>
+       <property name="checked">
+        <bool>true</bool>
        </property>
       </widget>
      </widget>

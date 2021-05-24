@@ -104,6 +104,8 @@ class Sub3(QDialog, sub_form):
     clsf = all_dl = ''
     mod = '로테이션'
     modified = False
+    from data_manage import ccp_check
+    ccp = ccp_check()
 
     def specified(self):
         df = self.df
@@ -273,7 +275,7 @@ class Sub3(QDialog, sub_form):
 
     def table_dp(self, card_list):
         row = 0
-        dl = d_check(self.mod, 'ETA', self.cls_h[self.clan_c])
+        dl = d_check(self.mod, self.ccp, self.cls_h[self.clan_c])
         dl_copy = dl[:]
         for i in range(len(dl)):
             try:
@@ -349,18 +351,6 @@ class Sub3(QDialog, sub_form):
             else:
                 lb_list[i].setText('조정완료')
                 lb_list[i].setStyleSheet('color: green')
-
-        """
-        if self.clsf[self.mod][self.cls[i]]['status'] == 'init':
-            self.lb_list[i].setText('초기상태')
-            self.lb_list[i].setStyleSheet('color: red')
-        elif self.clsf[self.mod][self.cls[i]]['status'] == 'adj':
-            self.lb_list[i].setText('조정필요')
-            self.lb_list[i].setStyleSheet('color: red')
-        else:
-            self.lb_list[i].setText('조정완료')
-            self.lb_list[i].setStyleSheet('color: green')
-        """
 
     def save_clsf(self):
         self.clsf[self.mod][self.cls[self.clan_c]]['status'] = 'comp'

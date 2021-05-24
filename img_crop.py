@@ -1,7 +1,7 @@
 from PIL import Image
 from selenium import webdriver
 from io import BytesIO
-
+from pyautogui import locate
 
 def img_scrap(card_id, card_name):
     url = "https://shadowverse-portal.com/card/" + str(card_id) + "?lang=ko"
@@ -37,22 +37,72 @@ def img_scrap(card_id, card_name):
     crop.save(name)
 
 # im.save('screenshot.png') # saves new cropped image
-
-"""
-path = './original/'
-imgs = os.listdir(path)
+# https://shadowverse-portal.com/image/card/phase2/common/C/C_119713010.png
+# https://shadowverse-portal.com/image/card/phase2/ko/N/N_119141010.png
 
 
-def img_crop(file):
-    im = Image.open(path + file)
-    area = (143, 49, 218, 75)
-    # area = (616, 73, 691, 99)
-    crop = im.crop(area)
-    fname = str(file).split('.')[0]
-    name = './original/' + fname + '_1.png'
-    crop.save(name)
+def capture():
+    import win32gui
+    import win32ui
+    from ctypes import windll
+    from PIL import ImageGrab
+    import sys
+    import cv2
+    import numpy as np
+
+    while 1:
+        hwnd = win32gui.FindWindow(None, 'Shadowverse')
+        try:
+            left, top, right, bot = win32gui.GetClientRect(hwnd)
+        except:
+            print('창을 찾을 수 없습니다.')
+            sys.exit()
+
+        w = right - left
+        h = bot - top
+
+        hwndDC = win32gui.GetWindowDC(hwnd)
+        mfcDC = win32ui.CreateDCFromHandle(hwndDC)
+        saveDC = mfcDC.CreateCompatibleDC()
+
+        saveBitMap = win32ui.CreateBitmap()
+        saveBitMap.CreateCompatibleBitmap(mfcDC, w, h)
+
+        saveDC.SelectObject(saveBitMap)
+
+        result = windll.user32.PrintWindow(hwnd, saveDC.GetSafeHdc(), 1)
+
+        bmpinfo = saveBitMap.GetInfo()
+        bmpstr = saveBitMap.GetBitmapBits(True)
+
+        try:
+            im = Image.frombuffer('RGB', (bmpinfo['bmWidth'], bmpinfo['bmHeight']), bmpstr, 'raw', 'BGRX', 0, 1)
+        except ValueError:
+            print('창이 최소화되어있습니다.')
+            sys.exit()
+
+        win32gui.DeleteObject(saveBitMap.GetHandle())
+        saveDC.DeleteDC()
+        mfcDC.DeleteDC()
+        win32gui.ReleaseDC(hwnd, hwndDC)
+
+        area = (480, 140, 550, 210)
+        im = im.crop(area).convert('RGB')
+        cv_im = np.array(im)
+        cv_im = cv2.cvtColor(cv_im, cv2.COLOR_RGB2BGR)
+
+        cv2.imshow('test', cv_im)
+        key = cv2.waitKey(10)
+        if key == 27:
+            break
 
 
-for img in imgs:
-    img_crop(img)
-"""
+def test_f(image):
+    test_img = Image.open('./test/test2.png')
+    c = 0.90
+    if not locate(test_img, image, grayscale=True, confidence=c) is None:
+        print('ok, c=', c)
+
+
+if __name__ == "__main__":
+    capture()
