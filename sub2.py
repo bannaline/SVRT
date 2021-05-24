@@ -7,7 +7,6 @@ import sqlite3
 import os
 from urllib.request import urlopen
 from urllib.error import *
-import time
 
 DATABASE_PATH = 'database/card_database.db'
 

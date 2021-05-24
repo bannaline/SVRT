@@ -27,8 +27,8 @@ def load_data(self):
     self.statusBar().showMessage(sb_msg)
 
 
-def write_record(self, a, b, c, d, e, f, g, h):
-    # a is cardpack, b is mod, c is myjob, d is myarche, e is oppojob, f is oppoarche, g is first, h is win
+def write_record(self, a, b, c, d, e, f, g, h, i, j):
+    # a is cardpack, b is mod, c is myjob, d is myarche, e is oppojob, f is oppoarche, g is first, h is win, i is type
     date = datetime.today().strftime("%Y-%m-%d")
     logtime = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     if c == '':
@@ -37,10 +37,10 @@ def write_record(self, a, b, c, d, e, f, g, h):
     elif e == '':
         QMessageBox.about(self, '주의', '상대 덱을 선택해주세요.')
         return
-    record = [date, a, b, c, d, e, f, g, h, logtime]
+    record = [date, a, b, c, d, e, f, g, h, logtime, i, j]
     conn = sqlite3.connect('log.db')
     cursor = conn.cursor()
-    cursor.execute("INSERT INTO log VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", record)
+    cursor.execute("INSERT INTO log VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", record)
     conn.commit()
     conn.close()
 

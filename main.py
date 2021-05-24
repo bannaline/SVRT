@@ -12,7 +12,6 @@ import os
 from sub1 import Sub
 from sub2 import Sub2
 from sub3 import Sub3
-# import configparser
 from pyautogui import locate
 import threading
 import time
@@ -21,6 +20,9 @@ import win32ui
 from ctypes import windll
 from PIL import Image
 import json
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
+from PyQt5.QtCore import pyqtSignal, pyqtSlot, QObject
 
 
 form_class = uic.loadUiType("main_window.ui")[0]
@@ -253,6 +255,7 @@ class Form(QMainWindow, form_class):
         style.use('ggplot')
 
         # 자동 기록 탭
+        self.tabWidget.tabBarClicked.connect(self.status_check)
         self.status_list = [self.stelfr, self.stroyalr, self.stwitchr, self.stbishopr, self.stdragonr,
                             self.stnecror, self.stvampr, self.stnemer]
         self.status_list_u = [self.stelfu, self.stroyalu, self.stwitchu, self.stbishopu, self.stdragonu,
@@ -293,7 +296,9 @@ class Form(QMainWindow, form_class):
         img_v = Image.open(path + "Victory.png")
         img_d = Image.open(path + "Defeat.png")
         img_t = Image.open(path + "myturn.png")
-        self.miscs = [img1, img2, img_v, img_d, img_t]
+        img_r = Image.open(path + "rota.png")
+        img_u = Image.open(path + "unli.png")
+        self.miscs = [img1, img2, img_v, img_d, img_t, img_r, img_u]
         self.first = ''
         self.win = ''
         self.mullTaken = False
@@ -301,18 +306,21 @@ class Form(QMainWindow, form_class):
         self.oppoSet = False
         self.resultSet = False
         self.yourSet = False
+        self.preview = False
         self.today = ''
         self.ccp = ccp
-        self.amod = self.amod_2 = '로테이션'
+        self.amod = self.amod_2 = ""
+        self.atype = ""
+        self.turn = 0
         self.mydeck = self.mydeck_2 = ''
         self.opdeck = ''
-        self.mydeck_card = []
-        self.opdeck_card = []
+        # self.mydeck_card = []
+        # self.opdeck_card = []
         self.log = []
         self.logtime = ''
         self.timer = None
         self.timer1 = None
-        self.al_timer = 5
+        self.al_timer = 7
         # self.conf = None
         self.clslist = ['forest', 'sword', 'rune', 'haven', 'dragon', 'shadow', 'blood', 'portal']
         self.cll = []
@@ -323,14 +331,18 @@ class Form(QMainWindow, form_class):
             self.checkautomini.setCheckState(0)
         self.comboautocp.addItems(cpl)
         self.comboautocp.setCurrentText(cp)
-        self.pushal.clicked.connect(self.autolog)
+        self.pushal.clicked.connect(self.autologstart)
         self.pushal.setEnabled(False)
         self.lb_alarm.setText('새로고침을 눌러 상태를 확인해주세요.')
         self.pushstop.setEnabled(False)
         self.pushstop.clicked.connect(self.stop)
         self.cb_mydeck.currentIndexChanged.connect(self.auto_mydeck)
         self.cb_opdeck.currentIndexChanged.connect(self.auto_opdeck)
-        self.cb_fix.setEnabled(False)
+        self.is_watchdog = False
+        self.watch = Target()
+        self.watch.modsignal.signal1.connect(self.signal_m)
+        self.timer = threading.Timer(1, self.autolog)
+        self.timer1 = threading.Timer(1, self.alarm)
 
     mod = '로테이션'
     logcp = ccp_check()
@@ -468,7 +480,7 @@ class Form(QMainWindow, form_class):
     # 등록 버튼 / 아키타입 한번 더 로드할것!
     def write_btn(self):
         write_record(self, self.logcp, self.mod, self.myjob, self.myarche,
-                     self.oppojob, self.oppoarche, self.fs, self.wl)
+                     self.oppojob, self.oppoarche, self.fs, self.wl, '랭크전', self.turn)
         load_data(self)
         self.table_rate()
 
@@ -997,6 +1009,7 @@ class Form(QMainWindow, form_class):
 
     def status_check(self):
         self.status = self.status_u = True
+        """
         with open("classifier.json", "r", encoding='UTF-8') as clsf:
             classifier = json.load(clsf)
         mods = ['로테이션', '언리미티드']
@@ -1013,6 +1026,7 @@ class Form(QMainWindow, form_class):
                         self.status = False
                     else:
                         self.status_u = False
+        """
 
         """
         for i in range(len(self.status_list)):
@@ -1027,28 +1041,33 @@ class Form(QMainWindow, form_class):
         self.al_enable()
 
     def auto_mod(self):
-        self.cb_fix.setChecked(False)
         mod = ''
         if self.radioautoRota.isChecked():
             mod = '로테이션'
         elif self.radioautoUnli.isChecked():
             mod = '언리미티드'
         self.amod = mod
-        self.al_enable()
+        # self.al_enable()
 
     def al_enable(self):
+        """
         if self.amod == '로테이션' and self.status:
             self.lb_alarm.setText('기록을 시작하려면 시작 버튼을 누르세요.')
             self.pushal.setEnabled(True)
-            self.auto_img(self.amod)
+            # self.auto_img(self.amod)
         elif self.amod == '언리미티드' and self.status_u:
             self.lb_alarm.setText('기록을 시작하려면 시작 버튼을 누르세요.')
             self.pushal.setEnabled(True)
-            self.auto_img(self.amod)
+            # self.auto_img(self.amod)
+        """
+        if self.status and self.status_u:
+            self.lb_alarm.setText('기록을 시작하려면 시작 버튼을 누르세요.')
+            self.pushal.setEnabled(True)
         else:
             self.lb_alarm.setText('메뉴로 들어가 덱 분류를 확인해주세요.')
             self.pushal.setEnabled(False)
 
+    """
     def auto_img(self, mod):
         # 카드 이미지 읽기
         if mod == '로테이션':
@@ -1069,6 +1088,7 @@ class Form(QMainWindow, form_class):
                 cimg = Image.open(card)
                 clist.append((name, cimg))
             self.cll.append(clist)
+    """
 
     def auto_cp(self):
         ccp = self.comboautocp.currentText()
@@ -1076,17 +1096,46 @@ class Form(QMainWindow, form_class):
             ccp = ccp + 'm'
         self.ccp = ccp
 
-    def autolog(self):
+    def autologstart(self):
         self.pushal.setEnabled(False)
         self.pushstop.setEnabled(True)
         self.al_work = True
-        self.lb_alarm.setText('데이터 수집 중')
+        self.toggle_watchdog()
+        self.autolog()
+
+    def toggle_watchdog(self):
+        if self.is_watchdog:
+            # streaming off
+            self.watch.watchdog_off()
+            self.is_watchdog = False
+
+        else:
+            try:
+                # setup
+                self.watch.set_observer()
+
+                # streaming on
+                self.watch.watchdog_on()
+                self.is_watchdog = True
+            except Exception as e:
+                # Log.e(self.tag, 'directory path error! :', e.__class__.__name__)
+                return
+
+    def autolog(self):
+        if self.al_work:
+            self.lb_alarm.setText('데이터 수집 중')
+
+        if not self.atype == "랭크전":
+            self.timer = threading.Timer(0.5, self.autolog)
+            self.timer.start()
+            return
         hwnd = win32gui.FindWindow(None, 'Shadowverse')
         try:
             left, top, right, bot = win32gui.GetClientRect(hwnd)
         except:
-            print('창을 찾을 수 없습니다.')
-            sys.exit()
+            QMessageBox.warning(self, '주의', '창을 찾을 수 없습니다.', QMessageBox.Ok, QMessageBox.Ok)
+            self.stop()
+            return
 
         w = right - left
         h = bot - top
@@ -1108,13 +1157,30 @@ class Form(QMainWindow, form_class):
         try:
             im = Image.frombuffer('RGB', (bmpinfo['bmWidth'], bmpinfo['bmHeight']), bmpstr, 'raw', 'BGRX', 0, 1)
         except ValueError:
-            print('창이 최소화되어있습니다.')
-            sys.exit()
+            QMessageBox.warning(self, '주의', '창이 최소화되어 있습니다.', QMessageBox.Ok, QMessageBox.Ok)
+            self.stop()
+            return
+
+        window_size = [(1280, 720), (1600, 900), (1920, 1080)]
+        size_check = False
+        for i in range(3):
+            if im.size[0] == window_size[i][0] and im.size[1] == window_size[i][1]:
+                size_check = True
+
+        if not size_check:
+            QMessageBox.warning(self, '주의', '해상도가 맞지 않습니다.', QMessageBox.Ok, QMessageBox.Ok)
 
         win32gui.DeleteObject(saveBitMap.GetHandle())
         saveDC.DeleteDC()
         mfcDC.DeleteDC()
         win32gui.ReleaseDC(hwnd, hwndDC)
+
+        if not locate(self.miscs[5], im, grayscale=True, confidence=0.90, region=(615, 30, 665, 75)) is None:
+            self.amod = "로테이션"
+            self.radioautoRota.setChecked(True)
+        elif not locate(self.miscs[6], im, grayscale=True, confidence=0.90, region=(615, 30, 665, 75)) is None:
+            self.amod = "언리미티드"
+            self.radioautoUnli.setChecked(True)
 
         if not self.mullTaken:
             # 선후공 체크
@@ -1141,6 +1207,31 @@ class Form(QMainWindow, form_class):
                     self.my_cls = self.crafts[self.mycn]
                     self.yourSet = True
         elif self.mullTaken and self.yourSet:
+            if not self.preview:
+                if self.amod == self.amod_2 and self.my_cls == self.my_cls_2 and self.cb_fix.isChecked():
+                    self.mydeck = self.mydeck_2
+                else:
+                    self.mydeck = "기타"
+                    # self.mydeck = self.deck_check(self.mydeck_card, self.mycn)
+                # self.opdeck = self.deck_check(self.opdeck_card, self.oppocn)
+                self.opdeck = "기타"
+                self.today = datetime.now().strftime('%Y-%m-%d')
+                self.lb_day.setText(self.today)
+                self.lb_cp.setText(self.ccp)
+                self.lb_mod.setText(self.amod)
+                self.lb_fs.setText(self.first)
+                self.lb_mycls.setText(self.my_cls)
+                self.lb_opcls.setText(self.oppo_cls)
+                mydecklist = d_check(self.amod, self.ccp, self.my_cls)
+                self.cb_mydeck.clear()
+                self.cb_mydeck.addItems(mydecklist)
+                self.cb_mydeck.setCurrentText(self.mydeck)
+                opdecklist = d_check(self.amod, self.ccp, self.oppo_cls)
+                self.cb_opdeck.clear()
+                self.cb_opdeck.addItems(opdecklist)
+                self.cb_opdeck.setCurrentText(self.opdeck)
+                self.preview = True
+            """
             # 카드 체크
             if not locate(self.miscs[4], im, grayscale=True, confidence=0.9, region=(1110, 330, 110, 50)) is None:
                 card_img = self.cll[self.mycn]
@@ -1156,6 +1247,7 @@ class Form(QMainWindow, form_class):
                         self.opdeck_card.append(name)
                         print(self.opdeck_card)
                         time.sleep(0.40)
+            """
             # 승패 체크
             if not locate(self.miscs[3], im, grayscale=False, confidence=0.97, region=(150, 55, 240, 25)) is None:
                 self.win = '패'
@@ -1165,38 +1257,24 @@ class Form(QMainWindow, form_class):
                 self.resultSet = True
             # 결과 출력 및 초기화
             if self.resultSet:
-                if self.amod == self.amod_2 and self.my_cls == self.my_cls_2 and self.cb_fix.isChecked():
-                    self.mydeck = self.mydeck_2
-                else:
-                    self.cb_fix.setChecked(False)
-                    self.mydeck = self.deck_check(self.mydeck_card, self.mycn)
-                self.opdeck = self.deck_check(self.opdeck_card, self.oppocn)
-                self.today = datetime.now().strftime('%Y-%m-%d')
                 self.logtime = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                self.lb_day.setText(self.today)
-                self.lb_cp.setText(self.ccp)
-                self.lb_mod.setText(self.amod)
-                self.lb_fs.setText(self.first)
-                self.lb_mycls.setText(self.my_cls)
-                self.lb_opcls.setText(self.oppo_cls)
                 self.lb_wl.setText(self.win)
                 self.lb_logtime.setText(self.logtime)
-                mydecklist = d_check(self.amod, self.ccp, self.my_cls)
-                self.cb_mydeck.clear()
-                self.cb_mydeck.addItems(mydecklist)
-                self.cb_mydeck.setCurrentText(self.mydeck)
-                opdecklist = d_check(self.amod, self.ccp, self.oppo_cls)
-                self.cb_opdeck.clear()
-                self.cb_opdeck.addItems(opdecklist)
-                self.cb_opdeck.setCurrentText(self.opdeck)
-                self.cb_fix.setEnabled(True)
                 self.timer.cancel()
                 self.alarm()
                 return
 
-        self.timer = threading.Timer(0.05, self.autolog)
+        self.timer = threading.Timer(0.5, self.autolog)
         self.timer.start()
 
+    @pyqtSlot(str, str)
+    def signal_m(self, clf, text):
+        if clf == "mod":
+            self.atype = text
+        elif clf == "turn":
+            self.turn = int(text.split('n')[1])
+
+    """
     def deck_check(self, card_list, cls_num):
         with open("classifier.json", "r", encoding='UTF-8') as clsf:
             classifier = json.load(clsf)
@@ -1219,6 +1297,7 @@ class Form(QMainWindow, form_class):
                 break
             i += 1
         return deck
+    """
 
     def auto_mydeck(self):
         self.mydeck = self.cb_mydeck.currentText()
@@ -1229,7 +1308,7 @@ class Form(QMainWindow, form_class):
     def alarm(self):
         if self.al_timer == 0:
             write_record(self, self.ccp, self.amod, self.my_cls, self.mydeck, self.oppo_cls, self.opdeck,
-                         self.first, self.win)
+                         self.first, self.win, self.atype, self.turn)
             self.lb_day2.setText(self.today)
             self.lb_cp2.setText(self.ccp)
             self.lb_mod2.setText(self.amod)
@@ -1243,34 +1322,12 @@ class Form(QMainWindow, form_class):
             self.amod_2 = self.amod
             self.my_cls_2 = self.my_cls
             self.mydeck_2 = self.mydeck
-            self.first = ''
-            self.win = ''
-            self.mullTaken = False
-            self.turnSet = False
-            self.oppoSet = False
-            self.resultSet = False
-            self.yourSet = False
-            self.my_cls = ""
-            self.mydeck = ""
-            self.mydeck_card = []
-            self.oppo_cls = ""
-            self.opdeck = ""
-            self.opdeck_card = []
-            self.lb_day.setText('')
-            self.lb_cp.setText('')
-            self.lb_mod.setText('')
-            self.lb_fs.setText('')
-            self.lb_mycls.setText('')
-            self.cb_mydeck.clear()
-            self.lb_opcls.setText('')
-            self.cb_opdeck.clear()
-            self.lb_wl.setText('')
-            self.lb_logtime.setText('')
+            self.auto_init()
             load_data(self)
             self.table_rate()
-            self.lb_alarm.setText('기록이 저장되었습니다.\n3초 후 자동시작')
-            self.al_timer = 5
-            self.timer = threading.Timer(3, self.autolog)
+            self.lb_alarm.setText('기록이 저장되었습니다.\n1초 후 자동시작')
+            self.al_timer = 7
+            self.timer = threading.Timer(1, self.autolog)
             self.timer.start()
             return
         text = '{}초 후 기록을 자동으로 저장합니다.'.format(self.al_timer)
@@ -1279,9 +1336,40 @@ class Form(QMainWindow, form_class):
         self.timer1 = threading.Timer(1, self.alarm)
         self.timer1.start()
 
+    def auto_init(self):
+        self.first = ''
+        self.win = ''
+        self.mullTaken = False
+        self.turnSet = False
+        self.oppoSet = False
+        self.resultSet = False
+        self.yourSet = False
+        self.my_cls = ""
+        self.mydeck = ""
+        # self.mydeck_card = []
+        self.oppo_cls = ""
+        self.opdeck = ""
+        # self.opdeck_card = []
+        self.amod = ""
+        self.turn = 0
+        self.preview = False
+        self.lb_day.setText('')
+        self.lb_cp.setText('')
+        self.lb_mod.setText('')
+        self.lb_fs.setText('')
+        self.lb_mycls.setText('')
+        self.cb_mydeck.clear()
+        self.lb_opcls.setText('')
+        self.cb_opdeck.clear()
+        self.lb_wl.setText('')
+        self.lb_logtime.setText('')
+
     def stop(self):
         self.timer.cancel()
         self.timer1.cancel()
+        self.auto_init()
+        if self.is_watchdog:
+            self.toggle_watchdog()
         self.al_work = False
         self.pushal.setEnabled(True)
         self.pushstop.setEnabled(False)
@@ -1294,6 +1382,83 @@ class Form(QMainWindow, form_class):
             event.accept()
         else:
             event.accept()
+
+
+class Target:
+    import getpass
+    username = getpass.getuser()
+    watchDir = 'C:/Users/' + username + '/AppData/LocalLow/Cygames/Shadowverse'
+    #watchDir에 감시하려는 디렉토리를 명시한다.
+
+    def __init__(self):
+        self.observer = None   #observer객체를 만듦
+        self.is_watchdog = False
+        self.modsignal = ModSignal()
+
+    def set_observer(self):
+        self.observer = Observer()
+        event_handler = Handler(emitter=self.modsignal)
+        self.observer.schedule(event_handler, self.watchDir, recursive=False)
+
+    def watchdog_on(self):
+        if not self.observer:
+            self.set_observer()
+        self.observer.start()
+        self.is_watchdog = True
+        print(self.is_watchdog)
+
+    def watchdog_off(self):
+        self.observer.stop()
+        self.observer = None
+        self.is_watchdog = False
+        print(self.is_watchdog)
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.watchdog_off()
+
+
+class Handler(FileSystemEventHandler):
+
+    def __init__(self, *args, emitter=None, **kwargs):
+        super(Handler, self).__init__(*args, **kwargs)
+        self._emitter = emitter
+
+    def on_modified(self, event): #파일, 디렉터리가 수정되면 실행
+        try:
+            with open(event.src_path, 'r', encoding='UTF-8') as log:
+                lines = log.read().splitlines()
+                if len(lines) > 12:
+                    logs = lines[-12:-1]
+                else:
+                    logs = lines
+            split = event.src_path.split('_')
+            # self._emitter.signal1.emit(split[-1])
+            for i in range(len(logs)):
+                if "Matching_ConnectAPI" in logs[i]:
+                    mod = ""
+                    if "FreeBattle" in logs[i]:
+                        mod = "일반전"
+                        #print("일반전")
+                    elif "RankBattle" in logs[i]:
+                        mod = "랭크전"
+                        #print("랭크전")
+                    elif "Colosseum" in logs[i]:
+                        mod = "그랑프리"
+                        #print("그랑프리")
+                    else:
+                        print(logs[i])
+                    self._emitter.signal1.emit("mod", mod)
+                elif "FinishTask" in logs[i]:
+                    turn = lines[1].split()
+                    #print(turn[0])
+                    self._emitter.signal1.emit("turn", turn[0])
+
+        except:
+            pass
+
+
+class ModSignal(QObject):
+    signal1 = pyqtSignal(str, str)
 
 
 if __name__ == "__main__":
