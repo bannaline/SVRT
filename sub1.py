@@ -86,8 +86,8 @@ class Sub(QDialog, sub_form):
         with open("cplist.json", "w") as file:
             file.write(json.dumps(cpl, indent='\t'))
         self.combocp.addItem(a)
-        self.combocp.setCurrentText(a)
         self.checkmini.setCheckState(0)
+        self.combocp.setCurrentText(a)
         self.cpdl_cp()
 
     def cp_del(self):
@@ -103,8 +103,10 @@ class Sub(QDialog, sub_form):
             cpl.remove(dcp)
             with open("cplist.json", "w") as file:
                 file.write(json.dumps(cpl, indent='\t'))
-            del self.all_dl[self.mod][dcp]
-            del self.all_dl[self.mod][dcpm]
+            del self.all_dl['로테이션'][dcp]
+            del self.all_dl['로테이션'][dcpm]
+            del self.all_dl['언리미티드'][dcp]
+            del self.all_dl['언리미티드'][dcpm]
             with open('decklist.json', 'w', encoding='UTF-8') as file:
                 file.write(json.dumps(self.all_dl, ensure_ascii=False, indent='\t'))
             self.cpdl_cp()
@@ -119,30 +121,6 @@ class Sub(QDialog, sub_form):
             self.all_dl['CCP'] = ccp
             with open('decklist.json', 'w', encoding='UTF-8') as file:
                 file.write(json.dumps(self.all_dl, ensure_ascii=False, indent='\t'))
-            clsf_init = {
-                "로테이션": {
-                    "sword": {"status": "init"},
-                    "rune": {"status": "init"},
-                    "forest": {"status": "init"},
-                    "haven": {"status": "init"},
-                    "dragon": {"status": "init"},
-                    "shadow": {"status": "init"},
-                    "blood": {"status": "init"},
-                    "portal": {"status": "init"},
-                },
-                "언리미티드": {
-                    "sword": {"status": "init"},
-                    "rune": {"status": "init"},
-                    "forest": {"status": "init"},
-                    "haven": {"status": "init"},
-                    "dragon": {"status": "init"},
-                    "shadow": {"status": "init"},
-                    "blood": {"status": "init"},
-                    "portal": {"status": "init"},
-                }
-            }
-            with open('classifier.json', 'w', encoding='UTF-8') as file:
-                file.write(json.dumps(clsf_init, ensure_ascii=False, indent='\t'))
 
     def list_renew(self):
         global lw
@@ -161,10 +139,21 @@ class Sub(QDialog, sub_form):
             QMessageBox.warning(self, '주의', '덱이 없는 직업이 존재합니다.', QMessageBox.Ok, QMessageBox.Ok)
 
     def new_cp(self):
-        ndl = {'엘프': ['기타'], '로얄': ['기타'], '위치': ['기타'], '비숍': ['기타'],
-               '드래곤': ['기타'], '네크로맨서': ['기타'], '뱀파이어': ['기타'], '네메시스': ['기타']}
-        self.all_dl['로테이션'][self.cp] = ndl
-        self.all_dl['언리미티드'][self.cp] = ndl
+        reply = QMessageBox.question(self, '새로운 카드팩', '이전 카드팩에서 덱 리스트를 가져오겠습니까?',
+                                     QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+        if reply == QMessageBox.Yes:
+            if len(self.cp) == 4:
+                cp = self.cp[:3]
+            else:
+                cp_index = self.combocp.currentIndex() - 1
+                cp = self.combocp.itemText(cp_index) + 'm'
+            ndl_r = self.all_dl['로테이션'][cp]
+            ndl_u = self.all_dl['언리미티드'][cp]
+        else:
+            ndl_r = ndl_u = {'엘프': ['기타'], '로얄': ['기타'], '위치': ['기타'], '비숍': ['기타'],
+                             '드래곤': ['기타'], '네크로맨서': ['기타'], '뱀파이어': ['기타'], '네메시스': ['기타']}
+        self.all_dl['로테이션'][self.cp] = ndl_r
+        self.all_dl['언리미티드'][self.cp] = ndl_u
         with open('decklist.json', 'w', encoding='UTF-8') as file:
             file.write(json.dumps(self.all_dl, ensure_ascii=False, indent='\t'))
         self.list_renew()

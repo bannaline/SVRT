@@ -10,41 +10,29 @@ from datetime import datetime
 from data_manage import load_data, all_data, cp_list, d_check, ccp_check, write_record
 import os
 from sub1 import Sub
-from sub2 import Sub2
-from sub3 import Sub3
 from pyautogui import locate
 import threading
-import time
 import win32gui
 import win32ui
 from ctypes import windll
 from PIL import Image
-import json
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from PyQt5.QtCore import pyqtSignal, pyqtSlot, QObject
+from logger import logger
 
 
 form_class = uic.loadUiType("main_window.ui")[0]
-button_map = {}
-b_text = []
 
 
 class Form(QMainWindow, form_class):
     def __init__(self):
+        logger.info("초기화시작")
         super().__init__()
         self.setupUi(self)
-        load_data(self)
-        self.table_rate()
 
         # CpDl 버튼
         self.actionCpDl.triggered.connect(self.cpdl)
-
-        # Database 버튼
-        self.actionDb.triggered.connect(self.dbmenu)
-
-        # Deck Categorization 버튼
-        self.actionDeckCate.triggered.connect(self.dcmenu)
 
         # Exit 버튼
         self.actionExit.triggered.connect(qApp.quit)
@@ -80,6 +68,7 @@ class Form(QMainWindow, form_class):
 
         # 카드팩 버튼
         ccp = ccp_check()
+        self.ccp = ccp
         if len(ccp) == 4:
             self.checkmini.setCheckState(2)
         else:
@@ -115,8 +104,17 @@ class Form(QMainWindow, form_class):
         # 상대 아키타입 버튼
         self.comboArcheOppo.currentIndexChanged.connect(self.cb_oppo_arche)
 
+        # 턴 버튼
+        self.comboTurn.clear()
+        turn_list = list(map(str, list(range(1, 41))))
+        self.comboTurn.addItems(turn_list)
+        self.comboTurn.currentIndexChanged.connect(self.cb_turn)
+
         # 등록 버튼
         self.pushRegister.clicked.connect(self.write_btn)
+
+        # 수정 버튼
+        self.pushModify.clicked.connect(self.modify_data)
 
         # 삭제 버튼
         self.pushErase.clicked.connect(self.erase_data)
@@ -149,14 +147,15 @@ class Form(QMainWindow, form_class):
 
         # 기록테이블 초기 폭 설정
         self.tableRecord.setColumnWidth(0, 80)
-        self.tableRecord.setColumnWidth(1, 55)
+        self.tableRecord.setColumnWidth(1, 53)
         self.tableRecord.setColumnWidth(2, 75)
         self.tableRecord.setColumnWidth(3, 77)
         self.tableRecord.setColumnWidth(4, 105)
         self.tableRecord.setColumnWidth(5, 77)
         self.tableRecord.setColumnWidth(6, 105)
-        self.tableRecord.setColumnWidth(7, 51)
-        self.tableRecord.setColumnWidth(8, 42)
+        self.tableRecord.setColumnWidth(7, 50)
+        self.tableRecord.setColumnWidth(8, 40)
+        self.tableRecord.setColumnWidth(9, 27)
 
         # 덱별 승률 모드 버튼
         self.radioDeckRota.clicked.connect(self.deckmodbtn)
@@ -186,19 +185,24 @@ class Form(QMainWindow, form_class):
         # 덱별 승률 스핀박스
         self.spinBox.valueChanged.connect(self.sortlimupdate)
 
-        global button_map
-        button_map = {}
-        global b_text
-        b_text = []
-        labels = [self.Deck1VSCount, self.Deck1First, self.Deck1Second, self.Deck2VSCount, self.Deck2First,
-                  self.Deck2Second, self.Deck3VSCount, self.Deck3First, self.Deck3Second, self.Deck4VSCount,
-                  self.Deck4First, self.Deck4Second, self.Deck5VSCount, self.Deck5First, self.Deck5Second,
-                  self.Deck6VSCount, self.Deck6First, self.Deck6Second, self.Deck7VSCount, self.Deck7First,
-                  self.Deck7Second, self.Deck8VSCount, self.Deck8First, self.Deck8Second]
-        for obj in labels:
-            button_map[obj.text()] = obj
-            b_text.append(obj.text())
-            obj.setText('')
+        self.labels = [self.Deck1VSCount, self.Deck1First, self.Deck1Second, self.Deck1Turn,
+                       self.Deck2VSCount, self.Deck2First, self.Deck2Second, self.Deck2Turn,
+                       self.Deck3VSCount, self.Deck3First, self.Deck3Second, self.Deck3Turn,
+                       self.Deck4VSCount, self.Deck4First, self.Deck4Second, self.Deck4Turn,
+                       self.Deck5VSCount, self.Deck5First, self.Deck5Second, self.Deck5Turn,
+                       self.Deck6VSCount, self.Deck6First, self.Deck6Second, self.Deck6Turn,
+                       self.Deck7VSCount, self.Deck7First, self.Deck7Second, self.Deck7Turn,
+                       self.Deck8VSCount, self.Deck8First, self.Deck8Second, self.Deck8Turn]
+
+        for label in self.labels:
+            label.setText("")
+
+        self.deck_btns = [self.pushdeck1, self.pushdeck2, self.pushdeck3, self.pushdeck4,
+                          self.pushdeck5, self.pushdeck6, self.pushdeck7, self.pushdeck8]
+        for i in range(len(self.deck_btns)):
+            self.deck_btns[i].setText("")
+            self.deck_btns[i].setEnabled(False)
+            self.deck_btns[i].clicked.connect(self.deck_static)
 
         # 덱별 전적 모드 버튼
         self.radioDeckRRota.clicked.connect(self.deckrmodbtn)
@@ -263,68 +267,10 @@ class Form(QMainWindow, form_class):
         for i in range(len(self.status_list)):
             self.status_list[i].setFont(QtGui.QFont('맑은 고딕'))
             self.status_list_u[i].setFont(QtGui.QFont('맑은 고딕'))
-        self.status = False
-        self.status_u = False
-        self.pushrefresh.clicked.connect(self.status_check)
+        self.pushrefresh.clicked.connect(self.status_refresh)
         self.radioautoRota.clicked.connect(self.auto_mod)
         self.radioautoUnli.clicked.connect(self.auto_mod)
-        path = "./resources/"
-        bloodicon = Image.open(path + "BloodIcon.png")
-        bloodpost = Image.open(path + "BloodPost.png")
-        dragonicon = Image.open(path + "DragonIcon.png")
-        dragonpost = Image.open(path + "DragonPost.png")
-        foresticon = Image.open(path + "ForestIcon.png")
-        forestpost = Image.open(path + "ForestPost.png")
-        havenicon = Image.open(path + "HavenIcon.png")
-        havenpost = Image.open(path + "HavenPost.png")
-        portalicon = Image.open(path + "PortalIcon.png")
-        portalpost = Image.open(path + "PortalPost.png")
-        runeicon = Image.open(path + "RuneIcon.png")
-        runepost = Image.open(path + "RunePost.png")
-        shadowicon = Image.open(path + "ShadowIcon.png")
-        shadowpost = Image.open(path + "ShadowPost.png")
-        swordicon = Image.open(path + "SwordIcon.png")
-        swordpost = Image.open(path + "SwordPost.png")
-        self.my_cls = self.my_cls_2 = ""
-        self.oppo_cls = ""
-        self.mycn = self.oppocn = 0
-        self.icons = [foresticon, swordicon, runeicon, havenicon, dragonicon, shadowicon, bloodicon, portalicon]
-        self.posts = [forestpost, swordpost, runepost, havenpost, dragonpost, shadowpost, bloodpost, portalpost]
-        self.crafts = ["엘프", "로얄", "위치", "비숍", "드래곤", "네크로맨서", "뱀파이어", "네메시스"]
-        img1 = Image.open(path + "1st.png")
-        img2 = Image.open(path + "2nd.png")
-        img_v = Image.open(path + "Victory.png")
-        img_d = Image.open(path + "Defeat.png")
-        img_t = Image.open(path + "myturn.png")
-        img_r = Image.open(path + "rota.png")
-        img_u = Image.open(path + "unli.png")
-        self.miscs = [img1, img2, img_v, img_d, img_t, img_r, img_u]
-        self.first = ''
-        self.win = ''
-        self.mullTaken = False
-        self.turnSet = False
-        self.oppoSet = False
-        self.resultSet = False
-        self.yourSet = False
-        self.preview = False
-        self.today = ''
-        self.ccp = ccp
-        self.amod = self.amod_2 = ""
-        self.atype = ""
-        self.turn = 0
-        self.mydeck = self.mydeck_2 = ''
-        self.opdeck = ''
-        # self.mydeck_card = []
-        # self.opdeck_card = []
-        self.log = []
-        self.logtime = ''
-        self.timer = None
-        self.timer1 = None
-        self.al_timer = 7
-        # self.conf = None
-        self.clslist = ['forest', 'sword', 'rune', 'haven', 'dragon', 'shadow', 'blood', 'portal']
-        self.cll = []
-        # self.auto_img()
+
         if len(ccp) == 4:
             self.checkautomini.setCheckState(2)
         else:
@@ -344,26 +290,42 @@ class Form(QMainWindow, form_class):
         self.timer = threading.Timer(1, self.autolog)
         self.timer1 = threading.Timer(1, self.alarm)
 
+        logger.info("초기화끝")
+
+        if os.path.isfile('log.db'):
+            load_data(self)
+        else:
+            self.init_data()
+        self.table_rate()
+
+        logger.info("테이블 불러오기 완료")
+
     mod = '로테이션'
     logcp = ccp_check()
     fs = wl = logdate = myjob = myarche = oppojob = oppoarche = deckmod = deckstartdate = deckenddate = ''
     fscheck = wlcheck = deckmodcheck = deckrmodcheck = 0
-    df = df2 = df3 = df5 = df6 = all_data()
+    turn = 1
+    df = df2 = df3 = df5 = df6 = pd.DataFrame([])
     sortlim = deckrmod = deckrstartdate = deckrenddate = deckrarche = ''
-    al_work = False
+    al_work = modi = status = status_u = stat_c = False
+    my_cls = my_cls_2 = oppo_cls = first = win = today = amod = amod_2 = atype = mydeck = mydeck_2 = opdeck = logtime = ""
+    mycn = oppocn = aturn = img_size = current_size = 0
+    crafts = ["엘프", "로얄", "위치", "비숍", "드래곤", "네크로맨서", "뱀파이어", "네메시스"]
+    mulligan = fsdecision = oppocls_al = wldecision = mycls_al = preview = False
+    log = []
+    al_timer = 7
+    clslist = ['forest', 'sword', 'rune', 'haven', 'dragon', 'shadow', 'blood', 'portal']
+    cll = []
+    icons = []
+    posts = []
+    miscs = []
+    regions = []
+    names = []
 
     # CpDl 버튼 이벤트
     def cpdl(self):
         self.cp_dl = Sub()
         self.cp_dl.show()
-
-    def dbmenu(self):
-        self.db_menu = Sub2()
-        self.db_menu.show()
-
-    def dcmenu(self):
-        self.dc_menu = Sub3()
-        self.dc_menu.show()
 
     # 모드 버튼 이벤트
     def rad_mod(self):
@@ -477,6 +439,10 @@ class Form(QMainWindow, form_class):
     def cb_oppo_arche(self):
         self.oppoarche = self.comboArcheOppo.currentText()
 
+    # 종료 턴
+    def cb_turn(self):
+        self.turn = int(self.comboTurn.currentText())
+
     # 등록 버튼 / 아키타입 한번 더 로드할것!
     def write_btn(self):
         write_record(self, self.logcp, self.mod, self.myjob, self.myarche,
@@ -488,13 +454,25 @@ class Form(QMainWindow, form_class):
     def erase_data(self):
         conn = sqlite3.connect('log.db')
         cursor = conn.cursor()
-        result = cursor.execute("SELECT LogTime FROM log ORDER BY LogTime DESC LIMIT 1")
-        edata = result.fetchall()
-        cursor.execute("DELETE FROM log WHERE LogTime=?", edata[0])
+        if not self.modi:
+            result = cursor.execute("SELECT LogTime FROM log ORDER BY LogTime DESC LIMIT 1")
+            edata = result.fetchall()
+            cursor.execute("DELETE FROM log WHERE LogTime=?", edata[0])
+        elif self.modi:
+            result = cursor.execute("SELECT LogTime FROM log ORDER BY LogTime DESC LIMIT 2")
+            edata = result.fetchall()
+            cursor.execute("DELETE FROM log WHERE LogTime=?", edata[1])
         conn.commit()
         conn.close()
         load_data(self)
         self.table_rate()
+
+    # 데이터 수정
+    def modify_data(self):
+        self.write_btn()
+        self.modi = True
+        self.erase_data()
+        self.modi = False
 
     # 초기화
     def init_data(self):
@@ -507,7 +485,7 @@ class Form(QMainWindow, form_class):
                 return
         conn = sqlite3.connect('log.db')
         cur = conn.cursor()
-        cur.execute("CREATE TABLE log(Date text, CardPack text, Mod TEXT, MyJob text, MyArche text, OppoJob text, OppoArche text, FirstSecond text, WinLose text, LogTime TEXT)")
+        cur.execute("CREATE TABLE log(Date text, CardPack text, Mod TEXT, MyJob text, MyArche text, OppoJob text, OppoArche text, FirstSecond text, WinLose text, LogTime TEXT, Type text, Turn int)")
         conn.commit()
         conn.close()
         self.tableRecord.setRowCount(0)
@@ -710,15 +688,15 @@ class Form(QMainWindow, form_class):
         self.figure1.clear()
 
     def deck(self, df):
-        global button_map
-        global b_text
-        text = b_text
         spl = range(241, 249)
+        self.names = []
+        for k in range(len(df)):
+            self.names.append(df.index[k])
         for i in range(8):
             if len(df) > i:
-                name = df.index[i]
+                name = self.names[i]
                 vs = str(df.iloc[i, 0]) + '전 ' + str(df.iloc[i, 1]) + '승 ' + str(df.iloc[i, 2]) + '패'
-                button_map[text[i*3]].setText(vs)
+                self.labels[i*4].setText(vs)
                 colors = ['lightskyblue', 'red']
                 labels = ['승', '패']
                 ratio = [df.iloc[i, 1], df.iloc[i, 2]]
@@ -731,20 +709,38 @@ class Form(QMainWindow, form_class):
                 firstwin = first[first['WinLose'].isin(['승'])]
                 second = df1[df1['FirstSecond'].isin(['후공'])]
                 secondwin = second[second['WinLose'].isin(['승'])]
+                turn = round(df1['Turn'].mean(skipna=True), 2)
                 if len(first) == 0:
-                    button_map[text[i*3+1]].setText('N/A')
+                    self.labels[i*4+1].setText('N/A')
                 else:
                     wr1st = '선공 ' + str(round(len(firstwin) * 100 / len(first), 1)) + '%'
-                    button_map[text[i*3+1]].setText(wr1st)
+                    self.labels[i*4+1].setText(wr1st)
                 if len(second) == 0:
-                    button_map[text[i*3+2]].setText('N/A')
+                    self.labels[i*4+2].setText('N/A')
                 else:
                     wr2nd = '후공 ' + str(round(len(secondwin) * 100 / len(second), 1)) + '%'
-                    button_map[text[i*3+2]].setText(wr2nd)
+                    self.labels[i*4+2].setText(wr2nd)
+                if str(type(turn)) == "<class 'float'>":
+                    self.labels[i * 4 + 3].setText('턴 정보 없음')
+                else:
+                    self.labels[i*4+3].setText('평균 ' + str(turn) + '턴')
+                self.deck_btns[i].setEnabled(True)
             else:
-                button_map[text[i*3]].setText('')
-                button_map[text[i*3+1]].setText('')
-                button_map[text[i*3+2]].setText('')
+                self.labels[i*4].setText('')
+                self.labels[i*4+1].setText('')
+                self.labels[i*4+2].setText('')
+                self.labels[i*4+3].setText('')
+                self.deck_btns[i].setEnabled(False)
+
+    # 덱 상세
+    def deck_static(self):
+        from statics import Static
+        self.static = Static()
+        self.static.my_deck = self.names[self.deck_btns.index(self.sender())]
+        self.static.my_deck_lists = self.names
+        self.static.df = self.df2
+        self.static.my_deck_init()
+        self.static.show()
 
     # 모드 버튼 in 덱별 전적
     def deckrmodbtn(self):
@@ -780,6 +776,9 @@ class Form(QMainWindow, form_class):
         self.df5 = df3
         df4 = df3.drop_duplicates(['MyArche'])
         lists = list(set(df4['MyArche']))
+        lt = [[x, x[-2:]] for x in lists]
+        lt.sort(key=lambda deck: deck[1])
+        lists = [x[0] for x in lt]
         self.comboDeckR.clear()
         self.comboDeckR.addItems(lists)
         self.cb_rec_arche()
@@ -850,7 +849,7 @@ class Form(QMainWindow, form_class):
         rects2 = ax.barh(1, swin, align='center', color='xkcd:pistachio', height=0.5, label='후공')
         ax.set_xlim([0, 100])
         ax.set_yticks([])
-        if fwin >= 30:
+        if fwin >= 40:
             for i, rect in enumerate(rects1):
                 ax.text(0.95 * rect.get_width(), rect.get_y() + rect.get_height() / 2.0, str(fwin) + '%',
                         ha='right', va='center')
@@ -858,7 +857,7 @@ class Form(QMainWindow, form_class):
             for i, rect in enumerate(rects1):
                 ax.text(rect.get_width() + 2, rect.get_y() + rect.get_height() / 2.0, str(fwin) + '%',
                         ha='left', va='center')
-        if swin >= 30:
+        if swin >= 40:
             for i, rect in enumerate(rects2):
                 ax.text(0.95 * rect.get_width(), rect.get_y() + rect.get_height() / 2.0, str(swin) + '%',
                         ha='right', va='center')
@@ -1007,37 +1006,25 @@ class Form(QMainWindow, form_class):
                         item.setBackground(QtGui.QColor(cls_cl[cls[i]][3], cls_cl[cls[i]][4], cls_cl[cls[i]][5]))
                         self.tableDeckR2.setItem(rowcount, j, item)
 
-    def status_check(self):
-        self.status = self.status_u = True
-        """
-        with open("classifier.json", "r", encoding='UTF-8') as clsf:
-            classifier = json.load(clsf)
-        mods = ['로테이션', '언리미티드']
-        st_lists = [self.status_list, self.status_list_u]
-        for mod, st_list in zip(mods, st_lists):
-            for i in range(len(st_list)):
-                if classifier[mod][self.clslist[i]]['status'] == 'comp':
-                    st_list[i].setText('OK')
-                    st_list[i].setStyleSheet('color: green')
-                else:
-                    st_list[i].setText('FAIL')
-                    st_list[i].setStyleSheet('color: red')
-                    if mod == '로테이션':
-                        self.status = False
-                    else:
-                        self.status_u = False
-        """
+    def status_refresh(self):
+        self.stat_c = False
+        self.status_check()
 
-        """
-        for i in range(len(self.status_list)):
-            if classifier[self.amod][self.clslist[i]]['status'] == 'comp':
-                self.status_list[i].setText('OK')
-                self.status_list[i].setStyleSheet('color: green')
-            else:
-                self.status_list[i].setText('FAIL')
-                self.status_list[i].setStyleSheet('color: red')
+    def status_check(self):
+        if self.stat_c:
+            return
+        self.status = self.status_u = True
+        for cls, lb in zip(self.crafts, self.status_list):
+            num = len(d_check("로테이션", self.ccp, cls))
+            lb.setText(str(num) + "개")
+            if num == 0:
                 self.status = False
-        """
+        for cls, lb in zip(self.crafts, self.status_list_u):
+            num = len(d_check("언리미티드", self.ccp, cls))
+            lb.setText(str(num) + "개")
+            if num == 0:
+                self.status = False
+        self.stat_c = True
         self.al_enable()
 
     def auto_mod(self):
@@ -1047,56 +1034,25 @@ class Form(QMainWindow, form_class):
         elif self.radioautoUnli.isChecked():
             mod = '언리미티드'
         self.amod = mod
-        # self.al_enable()
 
     def al_enable(self):
-        """
-        if self.amod == '로테이션' and self.status:
-            self.lb_alarm.setText('기록을 시작하려면 시작 버튼을 누르세요.')
-            self.pushal.setEnabled(True)
-            # self.auto_img(self.amod)
-        elif self.amod == '언리미티드' and self.status_u:
-            self.lb_alarm.setText('기록을 시작하려면 시작 버튼을 누르세요.')
-            self.pushal.setEnabled(True)
-            # self.auto_img(self.amod)
-        """
         if self.status and self.status_u:
             self.lb_alarm.setText('기록을 시작하려면 시작 버튼을 누르세요.')
             self.pushal.setEnabled(True)
         else:
-            self.lb_alarm.setText('메뉴로 들어가 덱 분류를 확인해주세요.')
+            self.lb_alarm.setText('메뉴로 들어가 덱을 확인해주세요.')
             self.pushal.setEnabled(False)
 
     """
-    def auto_img(self, mod):
-        # 카드 이미지 읽기
-        if mod == '로테이션':
-            path = 'rota/'
-        else:
-            path = 'unli/'
-        cpath = './cards/' + path
-        # self.conf = configparser.ConfigParser()
-        # self.conf.read(cpath + 'config.ini', encoding='UTF-8')
-        self.cll = []
-        for cls in self.clslist:
-            cnpath = cpath + cls + '/'
-            cn = os.listdir(cnpath)
-            clist = []
-            for card_file in cn:
-                card = cnpath + card_file
-                name = card_file.split('.')[0]
-                cimg = Image.open(card)
-                clist.append((name, cimg))
-            self.cll.append(clist)
-    """
-
     def auto_cp(self):
         ccp = self.comboautocp.currentText()
         if self.checkautomini.isChecked():
             ccp = ccp + 'm'
         self.ccp = ccp
+    """
 
     def autologstart(self):
+        logger.info("자동기록 시작")
         self.pushal.setEnabled(False)
         self.pushstop.setEnabled(True)
         self.al_work = True
@@ -1108,7 +1064,6 @@ class Form(QMainWindow, form_class):
             # streaming off
             self.watch.watchdog_off()
             self.is_watchdog = False
-
         else:
             try:
                 # setup
@@ -1121,24 +1076,68 @@ class Form(QMainWindow, form_class):
                 # Log.e(self.tag, 'directory path error! :', e.__class__.__name__)
                 return
 
+    def auto_load_img(self, number):
+        logger.info(str(number) + " 이미지 불러오기 시작")
+        path = "./resources/" + str(number) + "/"
+        bloodicon = Image.open(path + "BloodIcon.png")
+        bloodpost = Image.open(path + "BloodPost.png")
+        dragonicon = Image.open(path + "DragonIcon.png")
+        dragonpost = Image.open(path + "DragonPost.png")
+        foresticon = Image.open(path + "ForestIcon.png")
+        forestpost = Image.open(path + "ForestPost.png")
+        havenicon = Image.open(path + "HavenIcon.png")
+        havenpost = Image.open(path + "HavenPost.png")
+        portalicon = Image.open(path + "PortalIcon.png")
+        portalpost = Image.open(path + "PortalPost.png")
+        runeicon = Image.open(path + "RuneIcon.png")
+        runepost = Image.open(path + "RunePost.png")
+        shadowicon = Image.open(path + "ShadowIcon.png")
+        shadowpost = Image.open(path + "ShadowPost.png")
+        swordicon = Image.open(path + "SwordIcon.png")
+        swordpost = Image.open(path + "SwordPost.png")
+        self.icons = [foresticon, swordicon, runeicon, havenicon, dragonicon, shadowicon, bloodicon, portalicon]
+        self.posts = [forestpost, swordpost, runepost, havenpost, dragonpost, shadowpost, bloodpost, portalpost]
+        img1 = Image.open(path + "1st.png")
+        img2 = Image.open(path + "2nd.png")
+        img_v = Image.open(path + "Victory.png")
+        img_d = Image.open(path + "Defeat.png")
+        img_r = Image.open(path + "rota.png")
+        img_u = Image.open(path + "unli.png")
+        self.miscs = [img1, img2, img_v, img_d, img_r, img_u]
+        # [0]: 로테/언리, [1]: 선공/후공, [2]: 상대 직업, [3]: 내 직업, [4]: 승/패
+        if number == 1280:
+            self.regions = [(615, 30, 665, 75), (0, 0, 200, 150), (1000, 0, 280, 100),
+                            (0, 490, 220, 100), (150, 55, 240, 25)]
+        elif number == 1600:
+            self.regions = [(770, 40, 60, 55), (15, 10, 120, 95), (1355, 18, 45, 45),
+                            (30, 625, 220, 100), (170, 65, 310, 30)]
+        else:
+            self.regions = [(925, 48, 70, 70), (20, 13, 145, 110), (1630, 23, 50, 50),
+                            (40, 760, 255, 110), (210, 85, 360, 30)]
+        self.img_size = number
+        logger.info("이미지 불러오기 끝")
+
     def autolog(self):
-        if self.al_work:
-            self.lb_alarm.setText('데이터 수집 중')
+        # if self.al_work:
+        self.lb_alarm.setText('데이터 수집 중')
+
+        # self.al_work = True
+
+        hwnd = win32gui.FindWindow(None, 'Shadowverse')
+        try:
+            left, top, right, bot = win32gui.GetClientRect(hwnd)
+        except:
+            ans = QMessageBox.warning(self, '주의', '창을 찾을 수 없습니다.', QMessageBox.Ok, QMessageBox.Ok)
+            self.stop()
+            logger.warning("창 못찾음")
+            return
+        w = right - left
+        h = bot - top
 
         if not self.atype == "랭크전":
             self.timer = threading.Timer(0.5, self.autolog)
             self.timer.start()
             return
-        hwnd = win32gui.FindWindow(None, 'Shadowverse')
-        try:
-            left, top, right, bot = win32gui.GetClientRect(hwnd)
-        except:
-            QMessageBox.warning(self, '주의', '창을 찾을 수 없습니다.', QMessageBox.Ok, QMessageBox.Ok)
-            self.stop()
-            return
-
-        w = right - left
-        h = bot - top
 
         hwndDC = win32gui.GetWindowDC(hwnd)
         mfcDC  = win32ui.CreateDCFromHandle(hwndDC)
@@ -1159,6 +1158,7 @@ class Form(QMainWindow, form_class):
         except ValueError:
             QMessageBox.warning(self, '주의', '창이 최소화되어 있습니다.', QMessageBox.Ok, QMessageBox.Ok)
             self.stop()
+            logger.warning("창 최소화됨")
             return
 
         window_size = [(1280, 720), (1600, 900), (1920, 1080)]
@@ -1166,54 +1166,64 @@ class Form(QMainWindow, form_class):
         for i in range(3):
             if im.size[0] == window_size[i][0] and im.size[1] == window_size[i][1]:
                 size_check = True
+                self.current_size = im.size[0]
+                break
 
-        if not size_check:
-            QMessageBox.warning(self, '주의', '해상도가 맞지 않습니다.', QMessageBox.Ok, QMessageBox.Ok)
+        if size_check:
+            if not self.current_size == self.img_size:
+                self.auto_load_img(self.current_size)
+        else:
+            warning = QMessageBox.warning(self, '주의', '해상도가 맞지 않습니다.\n지원하는 해상도\n1280x720, 1600x900, 1920x1080',
+                                          QMessageBox.Cancel | QMessageBox.Ok, QMessageBox.Ok)
+            if warning == QMessageBox.Cancel:
+                self.stop()
+                return
+            else:
+                self.autolog()
+                return
 
         win32gui.DeleteObject(saveBitMap.GetHandle())
         saveDC.DeleteDC()
         mfcDC.DeleteDC()
         win32gui.ReleaseDC(hwnd, hwndDC)
 
-        if not locate(self.miscs[5], im, grayscale=True, confidence=0.90, region=(615, 30, 665, 75)) is None:
+        if not locate(self.miscs[4], im, grayscale=True, confidence=0.90, region=self.regions[0]) is None:
             self.amod = "로테이션"
             self.radioautoRota.setChecked(True)
-        elif not locate(self.miscs[6], im, grayscale=True, confidence=0.90, region=(615, 30, 665, 75)) is None:
+        elif not locate(self.miscs[5], im, grayscale=True, confidence=0.90, region=self.regions[0]) is None:
             self.amod = "언리미티드"
             self.radioautoUnli.setChecked(True)
 
-        if not self.mullTaken:
+        if not self.mulligan:
             # 선후공 체크
-            if not locate(self.miscs[0], im, grayscale=True, confidence=0.90, region=(0, 0, 200, 150)) is None:
+            if not locate(self.miscs[0], im, grayscale=True, confidence=0.90, region=self.regions[1]) is None:
                 self.first = '선공'
-                self.turnSet = True
-            elif not locate(self.miscs[1], im, grayscale=True, confidence=0.90, region=(0, 0, 200, 150)) is None:
+                self.fsdecision = True
+            elif not locate(self.miscs[1], im, grayscale=True, confidence=0.90, region=self.regions[1]) is None:
                 self.first = '후공'
-                self.turnSet = True
+                self.fsdecision = True
             # 상대 직업 체크
-            if self.turnSet:
+            if self.fsdecision:
                 for icon in self.icons:
-                    if not locate(icon, im, grayscale=True, confidence=0.90, region=(1000, 0, 280, 100)) is None:
+                    if not locate(icon, im, grayscale=True, confidence=0.90, region=self.regions[2]) is None:
                         self.oppocn = self.icons.index(icon)
                         self.oppo_cls = self.crafts[self.oppocn]
-                        self.oppoSet = True
+                        self.oppocls_al = True
                         break
-            self.mullTaken = self.turnSet and self.oppoSet
-        elif self.mullTaken and not self.yourSet:
+            self.mulligan = self.fsdecision and self.oppocls_al
+        elif self.mulligan and not self.mycls_al:
             # 내 직업 체크
             for post in self.posts:
-                if not locate(post, im, grayscale=True, confidence=0.90, region=(0, 490, 220, 100)) is None:
+                if not locate(post, im, grayscale=True, confidence=0.90, region=self.regions[3]) is None:
                     self.mycn = self.posts.index(post)
                     self.my_cls = self.crafts[self.mycn]
-                    self.yourSet = True
-        elif self.mullTaken and self.yourSet:
+                    self.mycls_al = True
+        elif self.mulligan and self.mycls_al:
             if not self.preview:
                 if self.amod == self.amod_2 and self.my_cls == self.my_cls_2 and self.cb_fix.isChecked():
                     self.mydeck = self.mydeck_2
                 else:
                     self.mydeck = "기타"
-                    # self.mydeck = self.deck_check(self.mydeck_card, self.mycn)
-                # self.opdeck = self.deck_check(self.opdeck_card, self.oppocn)
                 self.opdeck = "기타"
                 self.today = datetime.now().strftime('%Y-%m-%d')
                 self.lb_day.setText(self.today)
@@ -1231,73 +1241,36 @@ class Form(QMainWindow, form_class):
                 self.cb_opdeck.addItems(opdecklist)
                 self.cb_opdeck.setCurrentText(self.opdeck)
                 self.preview = True
-            """
-            # 카드 체크
-            if not locate(self.miscs[4], im, grayscale=True, confidence=0.9, region=(1110, 330, 110, 50)) is None:
-                card_img = self.cll[self.mycn]
-                for name, card in card_img:
-                    if not locate(card, im, grayscale=True, confidence=0.63, region=(530, 140, 230, 60)) is None:
-                        self.mydeck_card.append(name)
-                        print(self.mydeck_card)
-                        time.sleep(0.40)
-            else:
-                card_img = self.cll[self.oppocn]
-                for name, card in card_img:
-                    if not locate(card, im, grayscale=True, confidence=0.63, region=(530, 140, 230, 60)) is None:
-                        self.opdeck_card.append(name)
-                        print(self.opdeck_card)
-                        time.sleep(0.40)
-            """
+
             # 승패 체크
-            if not locate(self.miscs[3], im, grayscale=False, confidence=0.97, region=(150, 55, 240, 25)) is None:
+            if not locate(self.miscs[3], im, grayscale=False, confidence=0.97, region=self.regions[4]) is None:
                 self.win = '패'
-                self.resultSet = True
-            elif not locate(self.miscs[2], im, grayscale=False, confidence=0.97, region=(150, 55, 240, 25)) is None:
+                self.wldecision = True
+            elif not locate(self.miscs[2], im, grayscale=False, confidence=0.97, region=self.regions[4]) is None:
                 self.win = '승'
-                self.resultSet = True
+                self.wldecision = True
             # 결과 출력 및 초기화
-            if self.resultSet:
+            if self.wldecision:
                 self.logtime = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 self.lb_wl.setText(self.win)
                 self.lb_logtime.setText(self.logtime)
+                self.lb_turn.setText(str(self.aturn))
                 self.timer.cancel()
                 self.alarm()
                 return
 
-        self.timer = threading.Timer(0.5, self.autolog)
-        self.timer.start()
+        if self.al_work:
+            self.timer = threading.Timer(0.5, self.autolog)
+            self.timer.start()
 
     @pyqtSlot(str, str)
     def signal_m(self, clf, text):
         if clf == "mod":
             self.atype = text
+            logger.info(text + " 매칭 중")
         elif clf == "turn":
-            self.turn = int(text.split('n')[1])
-
-    """
-    def deck_check(self, card_list, cls_num):
-        with open("classifier.json", "r", encoding='UTF-8') as clsf:
-            classifier = json.load(clsf)
-        print(card_list, cls_num)
-        cls = self.clslist[cls_num]
-        cd_list = classifier[self.amod][cls]
-        d_type = []
-        for card in card_list:
-            try:
-                d_type.append(cd_list[card])
-            except:
-                d_type.append('기타')
-        print(d_type)
-        i = 1
-        deck = ''
-        while i:
-            arche = cd_list[str(i)]
-            if arche == '기타' or arche in d_type:
-                deck = arche
-                break
-            i += 1
-        return deck
-    """
+            self.aturn = int(text.split('n')[1])
+            logger.info(text + " 종료")
 
     def auto_mydeck(self):
         self.mydeck = self.cb_mydeck.currentText()
@@ -1306,9 +1279,12 @@ class Form(QMainWindow, form_class):
         self.opdeck = self.cb_opdeck.currentText()
 
     def alarm(self):
+        if self.al_timer == 7:
+            logger.info("매치 종료")
         if self.al_timer == 0:
             write_record(self, self.ccp, self.amod, self.my_cls, self.mydeck, self.oppo_cls, self.opdeck,
-                         self.first, self.win, self.atype, self.turn)
+                         self.first, self.win, self.atype, self.aturn)
+            logger.info("기록 저장")
             self.lb_day2.setText(self.today)
             self.lb_cp2.setText(self.ccp)
             self.lb_mod2.setText(self.amod)
@@ -1319,6 +1295,7 @@ class Form(QMainWindow, form_class):
             self.lb_opdeck2.setText(self.opdeck)
             self.lb_wl2.setText(self.win)
             self.lb_logtime2.setText(self.logtime)
+            self.lb_turn2.setText(str(self.aturn))
             self.amod_2 = self.amod
             self.my_cls_2 = self.my_cls
             self.mydeck_2 = self.mydeck
@@ -1339,19 +1316,17 @@ class Form(QMainWindow, form_class):
     def auto_init(self):
         self.first = ''
         self.win = ''
-        self.mullTaken = False
-        self.turnSet = False
-        self.oppoSet = False
-        self.resultSet = False
-        self.yourSet = False
+        self.mulligan = False
+        self.fsdecision = False
+        self.oppocls_al = False
+        self.wldecision = False
+        self.mycls_al = False
         self.my_cls = ""
         self.mydeck = ""
-        # self.mydeck_card = []
         self.oppo_cls = ""
         self.opdeck = ""
-        # self.opdeck_card = []
         self.amod = ""
-        self.turn = 0
+        self.aturn = 0
         self.preview = False
         self.lb_day.setText('')
         self.lb_cp.setText('')
@@ -1363,6 +1338,8 @@ class Form(QMainWindow, form_class):
         self.cb_opdeck.clear()
         self.lb_wl.setText('')
         self.lb_logtime.setText('')
+        self.lb_turn.setText('')
+        logger.info("라벨 초기화")
 
     def stop(self):
         self.timer.cancel()
@@ -1374,6 +1351,7 @@ class Form(QMainWindow, form_class):
         self.pushal.setEnabled(True)
         self.pushstop.setEnabled(False)
         self.lb_alarm.setText('기록 중지')
+        logger.info("기록 중지")
 
     def closeEvent(self, event):
         if self.al_work:
@@ -1405,13 +1383,11 @@ class Target:
             self.set_observer()
         self.observer.start()
         self.is_watchdog = True
-        print(self.is_watchdog)
 
     def watchdog_off(self):
         self.observer.stop()
         self.observer = None
         self.is_watchdog = False
-        print(self.is_watchdog)
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.watchdog_off()
@@ -1431,26 +1407,20 @@ class Handler(FileSystemEventHandler):
                     logs = lines[-12:-1]
                 else:
                     logs = lines
-            split = event.src_path.split('_')
-            # self._emitter.signal1.emit(split[-1])
             for i in range(len(logs)):
                 if "Matching_ConnectAPI" in logs[i]:
                     mod = ""
                     if "FreeBattle" in logs[i]:
                         mod = "일반전"
-                        #print("일반전")
                     elif "RankBattle" in logs[i]:
                         mod = "랭크전"
-                        #print("랭크전")
                     elif "Colosseum" in logs[i]:
                         mod = "그랑프리"
-                        #print("그랑프리")
                     else:
                         print(logs[i])
                     self._emitter.signal1.emit("mod", mod)
                 elif "FinishTask" in logs[i]:
                     turn = lines[1].split()
-                    #print(turn[0])
                     self._emitter.signal1.emit("turn", turn[0])
 
         except:
