@@ -26,4 +26,4 @@ A basic idea for auto logging is from Nio
 - https://github.com/VivereSV/NioShadowverseLogger
 
 # To do list
-* Other languages, but maybe so late
+* Other languages, but maybe very late
