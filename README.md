@@ -16,4 +16,11 @@ __Usage__
 * CPU - probably 15% when it excute, less than 0.5% when it use autologging
 * RAM - 75~76MB
 * GPU - less than 0.1%
+
+# IMPORTANT!!
+* This programm captures Shadowverse application screen when you use autologging.
+* So, if Shadowverse application is Full screen mod, autologging is not working.
          
+# Special Thanks
+A basic idea for auto logging is from Nio
+- https://github.com/VivereSV/NioShadowverseLogger
