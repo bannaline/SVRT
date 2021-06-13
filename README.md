@@ -20,10 +20,11 @@ __Usage__
 # IMPORTANT!!
 * This programm captures Shadowverse application screen when you use autologging.
 * So, if Shadowverse application is Full screen mod, autologging is not working.
+* Support for korean only.
          
 # Special Thanks
 A basic idea for auto logging is from Nio
 - https://github.com/VivereSV/NioShadowverseLogger
 
 # To do list
-* Other languages, but maybe very late
+* Support other languages, but maybe very late
