@@ -4,6 +4,7 @@
 __INFORMATION__
 * This project is for a personal purpose.
 * This programm has slow exeution speed.
+* Autologging works for only rank match.
 
 __Test environment__
 * AMD Ryzen 5 2600X
