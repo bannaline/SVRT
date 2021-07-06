@@ -1,6 +1,8 @@
 import sys
+import os
 from PyQt5.QtWidgets import QMainWindow, QApplication, QTableWidgetItem, qApp, QMessageBox
-from PyQt5 import QtCore, QtGui, uic
+from PyQt5 import QtCore, QtGui
+from PyQt5.QtCore import pyqtSignal, pyqtSlot, QObject, QThread
 import sqlite3
 import matplotlib.pyplot as plt
 from matplotlib import font_manager, rc, style
@@ -8,7 +10,6 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 import pandas as pd
 from datetime import datetime
 from data_manage import load_data, all_data, cp_list, d_check, ccp_check, write_record
-import os
 from sub1 import Sub
 from pyautogui import locate
 import threading
@@ -18,24 +19,47 @@ from ctypes import windll
 from PIL import Image
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
-from PyQt5.QtCore import pyqtSignal, pyqtSlot, QObject
 from logger import logger
+from main_window_ts1 import Ui_MainWindow
+import configparser
 
-
-form_class = uic.loadUiType("main_window.ui")[0]
+# form_class = uic.loadUiType("./main_window.ui")[0]
+form_class = Ui_MainWindow
 
 
 class Form(QMainWindow, form_class):
     def __init__(self):
         logger.info("초기화시작")
-        super().__init__()
+        super(Form, self).__init__()
         self.setupUi(self)
+
+        self.trans = QtCore.QTranslator(self)
+        self.retranslateUi(self)
 
         # CpDl 버튼
         self.actionCpDl.triggered.connect(self.cpdl)
 
         # Exit 버튼
         self.actionExit.triggered.connect(qApp.quit)
+
+        # 언어 버튼
+        self.actionKorean.triggered.connect(lambda: self.retrans_code("ko_KR"))
+        self.actionEnglish.triggered.connect(lambda: self.retrans_code("en_US"))
+        self.actionJapanese.triggered.connect(lambda: self.retrans_code("ja_JP"))
+
+        # 로캘 초기화
+        config = configparser.ConfigParser()
+        config.read("config.ini")
+        loc = config["locale"]["locale"]
+        if loc == "None":
+            import locale
+            loc = locale.getdefaultlocale()[0]
+        if loc == "ko_KR" or loc == "ja_JP":
+            pass
+        else:
+            loc = "en_US"
+        self.loc = loc
+        self.retrans_code(loc)
 
         # 날짜 위젯 현재 날짜로 초기화
         self.dateEdit.setDate(datetime.today())
@@ -68,7 +92,7 @@ class Form(QMainWindow, form_class):
 
         # 카드팩 버튼
         ccp = ccp_check()
-        self.ccp = ccp
+        self.ccp = self.logcp = ccp
         if len(ccp) == 4:
             self.checkmini.setCheckState(2)
         else:
@@ -147,15 +171,15 @@ class Form(QMainWindow, form_class):
 
         # 기록테이블 초기 폭 설정
         self.tableRecord.setColumnWidth(0, 80)
-        self.tableRecord.setColumnWidth(1, 53)
-        self.tableRecord.setColumnWidth(2, 75)
-        self.tableRecord.setColumnWidth(3, 77)
-        self.tableRecord.setColumnWidth(4, 105)
-        self.tableRecord.setColumnWidth(5, 77)
-        self.tableRecord.setColumnWidth(6, 105)
-        self.tableRecord.setColumnWidth(7, 50)
+        self.tableRecord.setColumnWidth(1, 68)
+        self.tableRecord.setColumnWidth(2, 90)
+        self.tableRecord.setColumnWidth(3, 85)
+        self.tableRecord.setColumnWidth(4, 120)
+        self.tableRecord.setColumnWidth(5, 85)
+        self.tableRecord.setColumnWidth(6, 120)
+        self.tableRecord.setColumnWidth(7, 60)
         self.tableRecord.setColumnWidth(8, 40)
-        self.tableRecord.setColumnWidth(9, 27)
+        self.tableRecord.setColumnWidth(9, 41)
 
         # 덱별 승률 모드 버튼
         self.radioDeckRota.clicked.connect(self.deckmodbtn)
@@ -231,17 +255,17 @@ class Form(QMainWindow, form_class):
         self.pushRLoad.clicked.connect(self.deckrrecordupdate)
 
         # 덱별 전적 테이블 폭 설정
-        self.tableDeckR1.setColumnWidth(0, 98)
-        self.tableDeckR1.setColumnWidth(1, 30)
-        self.tableDeckR1.setColumnWidth(2, 30)
-        self.tableDeckR1.setColumnWidth(3, 30)
+        self.tableDeckR1.setColumnWidth(0, 115)
+        self.tableDeckR1.setColumnWidth(1, 50)
+        self.tableDeckR1.setColumnWidth(2, 40)
+        self.tableDeckR1.setColumnWidth(3, 40)
         self.tableDeckR1.setColumnWidth(4, 48)
         self.tableDeckR1.setColumnWidth(5, 48)
         self.tableDeckR1.setColumnWidth(6, 48)
-        self.tableDeckR2.setColumnWidth(0, 98)
-        self.tableDeckR2.setColumnWidth(1, 30)
-        self.tableDeckR2.setColumnWidth(2, 30)
-        self.tableDeckR2.setColumnWidth(3, 30)
+        self.tableDeckR2.setColumnWidth(0, 115)
+        self.tableDeckR2.setColumnWidth(1, 50)
+        self.tableDeckR2.setColumnWidth(2, 40)
+        self.tableDeckR2.setColumnWidth(3, 40)
         self.tableDeckR2.setColumnWidth(4, 48)
         self.tableDeckR2.setColumnWidth(5, 48)
         self.tableDeckR2.setColumnWidth(6, 48)
@@ -253,7 +277,12 @@ class Form(QMainWindow, form_class):
         self.figure2 = plt.figure(2)
         self.canvas2 = FigureCanvas(self.figure2)
         self.DeckRLayout1.addWidget(self.canvas2)
-        self.font_name = font_manager.FontProperties(fname="c:/Windows/Fonts/malgun.ttf").get_name()
+        fname = ""
+        if self.loc == "ko_KR" or self.loc == "en_US":
+            fname = "c:/Windows/Fonts/malgun.ttf"
+        elif self.loc == "ja_JP":
+            fname = "c:/Windows/Fonts/meiryo.ttc"
+        self.font_name = font_manager.FontProperties(fname=fname).get_name()
         rc('font', family=self.font_name)
         font_manager.FontProperties().set_size('xx-small')
         style.use('ggplot')
@@ -264,12 +293,7 @@ class Form(QMainWindow, form_class):
                             self.stnecror, self.stvampr, self.stnemer]
         self.status_list_u = [self.stelfu, self.stroyalu, self.stwitchu, self.stbishopu, self.stdragonu,
                               self.stnecrou, self.stvampu, self.stnemeu]
-        for i in range(len(self.status_list)):
-            self.status_list[i].setFont(QtGui.QFont('맑은 고딕'))
-            self.status_list_u[i].setFont(QtGui.QFont('맑은 고딕'))
         self.pushrefresh.clicked.connect(self.status_refresh)
-        self.radioautoRota.clicked.connect(self.auto_mod)
-        self.radioautoUnli.clicked.connect(self.auto_mod)
 
         if len(ccp) == 4:
             self.checkautomini.setCheckState(2)
@@ -287,7 +311,17 @@ class Form(QMainWindow, form_class):
         self.is_watchdog = False
         self.watch = Target()
         self.watch.modsignal.signal1.connect(self.signal_m)
-        self.timer = threading.Timer(1, self.autolog)
+        self.thread1 = Worker()
+        self.thread1.not_found.connect(self.not_found)
+        self.thread1.minimize.connect(self.minimized)
+        self.thread1.req_resizing.connect(self.req_resize)
+        self.thread1.auto_mod.connect(self.auto_mod)
+        self.thread1.first.connect(self.auto_first)
+        self.thread1.oppo_craft.connect(self.auto_oppo_craft)
+        self.thread1.my_craft.connect(self.auto_my_craft)
+        self.thread1.auto_preview.connect(self.auto_preview)
+        self.thread1.auto_win.connect(self.auto_win)
+        self.thread1.auto_result.connect(self.auto_result)
         self.timer1 = threading.Timer(1, self.alarm)
 
         logger.info("초기화끝")
@@ -300,52 +334,115 @@ class Form(QMainWindow, form_class):
 
         logger.info("테이블 불러오기 완료")
 
-    mod = '로테이션'
-    logcp = ccp_check()
-    fs = wl = logdate = myjob = myarche = oppojob = oppoarche = deckmod = deckstartdate = deckenddate = ''
+    fs = wl = logdate = myjob = myarche = oppojob = oppoarche = deckmod = deckstartdate = deckenddate = ""
     fscheck = wlcheck = deckmodcheck = deckrmodcheck = 0
     turn = 1
+    sortlim = 10
     df = df2 = df3 = df5 = df6 = pd.DataFrame([])
-    sortlim = deckrmod = deckrstartdate = deckrenddate = deckrarche = ''
-    al_work = modi = status = status_u = stat_c = False
-    my_cls = my_cls_2 = oppo_cls = first = win = today = amod = amod_2 = atype = mydeck = mydeck_2 = opdeck = logtime = ""
+    deckrmod = deckrstartdate = deckrenddate = deckrarche = ""
+    al_work = modi = status = status_u = stat_c = retrans = in_match = False
+    my_cls = my_cls_2 = oppo_cls = first = win = today = ""
+    amod = amod_2 = atype = mydeck = mydeck_2 = opdeck = logtime = ""
     mycn = oppocn = aturn = img_size = current_size = 0
-    crafts = ["엘프", "로얄", "위치", "비숍", "드래곤", "네크로맨서", "뱀파이어", "네메시스"]
-    mulligan = fsdecision = oppocls_al = wldecision = mycls_al = preview = False
     log = []
-    al_timer = 7
-    clslist = ['forest', 'sword', 'rune', 'haven', 'dragon', 'shadow', 'blood', 'portal']
+    al_timer = 5
     cll = []
     icons = []
     posts = []
     miscs = []
     regions = []
     names = []
+    win_style = "background-color:rgba(255,0,0,20)"
+    lose_style = "background-color:rgba(0,0,255,20)"
+    init_style = "background-color:rgba(0,0,0,0)"
+    ok_style = "background-color:rgba(0,255,0,20)"
 
     # CpDl 버튼 이벤트
     def cpdl(self):
         self.cp_dl = Sub()
         self.cp_dl.show()
 
+    def retrans_code(self, locale_code):
+        config = configparser.ConfigParser()
+        config.read("config.ini")
+        if self.retrans or config["locale"]["locale"] == "None":
+            QApplication.instance().removeTranslator(self.trans)
+            config["locale"]["locale"] = locale_code
+            with open('config.ini', 'w') as configfile:
+                config.write(configfile)
+        loc_path = "./locales/base_" + locale_code + ".qm"
+        self.trans.load(loc_path)
+        QApplication.instance().installTranslator(self.trans)
+        self.retranslateUi(Form)
+        self.retrans_text(locale_code)
+        if self.retrans:
+            QMessageBox.warning(self, self.msgs[6], self.msgs[10])
+        self.retrans = True
+
+    def retrans_text(self, locale_code):
+        if locale_code == "ko_KR":
+            self.mod = "로테이션"
+            self.crafts = ["엘프", "로얄", "위치", "비숍", "드래곤", "네크로맨서", "뱀파이어", "네메시스"]
+            self.mods = ["로테이션", "언리미티드"]
+            self.win_lose = ["승", "패"]
+            self.fir_sec = ["선공", "후공"]
+            self.types = ["일반전", "랭킹전", "그랑프리", "기타", "친선전"]
+            self.msgs = ["경고", "정말 기록을 초기화하겠습니까?", "기간 내 로테이션 전적", "기간 내 언리미티드 전적", "전적없음",
+                         "전", "주의", "창을 찾을 수 없어 자동기록이 중지되었습니다.", "창이 최소화되어 자동기록이 중지되었습니다.",
+                         "해상도 조정 필요. (가로해상도: 1280, 1600, 1920)", "안정성을 위해 프로그램을 재시작해주십시오."]
+            self.lb_msgs = ["턴 정보 없음", "평균", "턴", "개", "기록을 시작하려면 시작 버튼을 누르세요.",
+                            "메뉴로 들어가 덱을 확인해주세요.", "데이터 수집 중", "기타", " ※ {} 외는 저장되지 않습니다.",
+                            "{}초 후 기록을 자동으로 저장합니다.", "기록 중지", "{}은 기록되지 않습니다. {}초 후 데이터 수집을 재개"]
+        elif locale_code == "ja_JP":
+            self.mod = "ローテーション"
+            self.crafts = ["エルフ", "ロイヤル", "ウィッチ", "ビショップ", "ドラゴン", "ネクロマンサー", "ヴァンパイア", "ネメシス"]
+            self.mods = ["ローテーション", "アンリミテッド"]
+            self.win_lose = ["勝", "敗"]
+            self.fir_sec = ["先攻", "後攻"]
+            self.types = ["フリーマッチ", "ランクマッチ", "グランプリ", "その他", "ルームマッチ"]
+            self.msgs = ["警告", "本当に記録を初期化しますか？", "期間内ローテーションのレコード", "期間内アンリミテッドのレコード",
+                         "記録なし", "試合", "注意", "ウィンドウを見つけることができないため、自動記録が停止されました。",
+                         "ウィンドウが最小化されて、自動記録が停止されました。", "解像度の調整が必要です。 (横解像度: 1280, 1600, 1920)",
+                         "安定性のためのプログラムを再起動してください。"]
+            self.lb_msgs = ["ターン情報なし", "平均", "ターン", "個", "記録を開始するには、スタートボタンを押してください。",
+                            "メニューに入りデッキを確認してください。", "データ収集中", "その他",
+                            " ※ {}以外は保存されません。", "{}秒後に記録を自動的に保存します。", "記録停止",
+                            "{}は記録されません。{}秒後にデータ収集を再開"]
+        else:
+            self.mod = "Rotation"
+            self.crafts = ["Forest", "Sword", "Rune", "Haven", "Dragon", "Shadow", "Blood", "Portal"]
+            self.mods = ["Rotation", "Unlimited"]
+            self.win_lose = ["Win", "Lose"]
+            self.fir_sec = ["1st", "2nd"]
+            self.types = ["FreeMatch", "RankMatch", "Colosseum", "Others", "RoomMatch"]
+            self.msgs = ["Alert", "Are you sure you want to reset the records?", "Rotation records in the period",
+                         "Unlimited records in the period", "No record", "Match", "Warning",
+                         "Autologging has stopped because the window could not be found.",
+                         "Autologging has stopped because the window was minimized.",
+                         "Need to adjust resolution. (horizontal resolution: 1280, 1600, 1920)",
+                         "Please restart the program for stability."]
+            self.lb_msgs = ["No information", "Average", "Turn", "Decks", "Press the Start button to start recording.",
+                            "Please go to the menu and check your deck.", "Collecting data", "Others",
+                            " ※ Anything other than {} is not saved.",
+                            "Automatically save the recording after {} seconds.", "Stop recording",
+                            "{} is not recorded. Restart data collection after {} seconds"]
+        self.locale = locale_code
+
     # 모드 버튼 이벤트
     def rad_mod(self):
-        mod = ''
         if self.radioRecRota.isChecked():
-            mod = '로테이션'
+            self.mod = self.mods[0]
         elif self.radioRecUnli.isChecked():
-            mod = '언리미티드'
-        self.mod = mod
+            self.mod = self.mods[1]
         self.radio_myjob()
         self.radio_oppojob()
 
     # 선후공 버튼 이벤트
     def rad_fs(self):
-        fs = ''
         if self.radioFirst.isChecked():
-            fs = '선공'
+            self.fs = self.fir_sec[0]
         elif self.radioSecond.isChecked():
-            fs = '후공'
-        self.fs = fs
+            self.fs = self.fir_sec[1]
         if self.fscheck == 0:
             self.radioWin.setEnabled(True)
             self.radioLose.setEnabled(True)
@@ -353,12 +450,10 @@ class Form(QMainWindow, form_class):
 
     # 승패 버튼 이벤트
     def rad_wl(self):
-        wl = ''
         if self.radioWin.isChecked():
-            wl = '승'
+            self.wl = self.win_lose[0]
         elif self.radioLose.isChecked():
-            wl = '패'
-        self.wl = wl
+            self.wl = self.win_lose[1]
         if self.wlcheck == 0:
             self.pushRegister.setEnabled(True)
             self.wlcheck = 1
@@ -377,22 +472,22 @@ class Form(QMainWindow, form_class):
 
     # 내 직업
     def radio_myjob(self):
-        if self.radioRoyalMy.isChecked():
-            myjob = '로얄'
+        if self.radioElfMy.isChecked():
+            myjob = self.crafts[0]
+        elif self.radioRoyalMy.isChecked():
+            myjob = self.crafts[1]
         elif self.radioWitchMy.isChecked():
-            myjob = '위치'
-        elif self.radioElfMy.isChecked():
-            myjob = '엘프'
+            myjob = self.crafts[2]
         elif self.radioBishopMy.isChecked():
-            myjob = '비숍'
+            myjob = self.crafts[3]
         elif self.radioDragonMy.isChecked():
-            myjob = '드래곤'
+            myjob = self.crafts[4]
         elif self.radioNecroMy.isChecked():
-            myjob = '네크로맨서'
+            myjob = self.crafts[5]
         elif self.radioVampMy.isChecked():
-            myjob = '뱀파이어'
+            myjob = self.crafts[6]
         elif self.radioNemeMy.isChecked():
-            myjob = '네메시스'
+            myjob = self.crafts[7]
         else:
             return
 
@@ -409,22 +504,22 @@ class Form(QMainWindow, form_class):
 
     # 상대 직업
     def radio_oppojob(self):
-        if self.radioRoyalOppo.isChecked():
-            oppojob = '로얄'
+        if self.radioElfOppo.isChecked():
+            oppojob = self.crafts[0]
+        elif self.radioRoyalOppo.isChecked():
+            oppojob = self.crafts[1]
         elif self.radioWitchOppo.isChecked():
-            oppojob = '위치'
-        elif self.radioElfOppo.isChecked():
-            oppojob = '엘프'
+            oppojob = self.crafts[2]
         elif self.radioBishopOppo.isChecked():
-            oppojob = '비숍'
+            oppojob = self.crafts[3]
         elif self.radioDragonOppo.isChecked():
-            oppojob = '드래곤'
+            oppojob = self.crafts[4]
         elif self.radioNecroOppo.isChecked():
-            oppojob = '네크로맨서'
+            oppojob = self.crafts[5]
         elif self.radioVampOppo.isChecked():
-            oppojob = '뱀파이어'
+            oppojob = self.crafts[6]
         elif self.radioNemeOppo.isChecked():
-            oppojob = '네메시스'
+            oppojob = self.crafts[7]
         else:
             return
 
@@ -446,7 +541,7 @@ class Form(QMainWindow, form_class):
     # 등록 버튼 / 아키타입 한번 더 로드할것!
     def write_btn(self):
         write_record(self, self.logcp, self.mod, self.myjob, self.myarche,
-                     self.oppojob, self.oppoarche, self.fs, self.wl, '랭크전', self.turn)
+                     self.oppojob, self.oppoarche, self.fs, self.wl, self.types[1], self.turn)
         load_data(self)
         self.table_rate()
 
@@ -478,14 +573,15 @@ class Form(QMainWindow, form_class):
     def init_data(self):
         if os.path.isfile('log.db'):
             msgbox = QMessageBox
-            ret = msgbox.question(self, '경고', '정말 기록을 초기화하겠습니까?')
+            ret = msgbox.question(self, self.msgs[0], self.msgs[1])
             if ret == QMessageBox.Yes:
                 os.remove('log.db')
             elif ret == QMessageBox.No:
                 return
         conn = sqlite3.connect('log.db')
         cur = conn.cursor()
-        cur.execute("CREATE TABLE log(Date text, CardPack text, Mod TEXT, MyJob text, MyArche text, OppoJob text, OppoArche text, FirstSecond text, WinLose text, LogTime TEXT, Type text, Turn int)")
+        cur.execute(
+            "CREATE TABLE log(Date text, CardPack text, Mod TEXT, MyJob text, MyArche text, OppoJob text, OppoArche text, FirstSecond text, WinLose text, LogTime TEXT, Type text, Turn int)")
         conn.commit()
         conn.close()
         self.tableRecord.setRowCount(0)
@@ -500,78 +596,78 @@ class Form(QMainWindow, form_class):
             df = df[df['CardPack'].isin([cp])]
         elif self.radioToday.isChecked():
             df = df[df['Date'].isin([today])]
-        df1 = df[df['Mod'].isin(['로테이션'])]
+        df1 = df[df['Mod'].isin([self.mods[0]])]
         vscount = len(df1)
         rota = []
         if vscount == 0:
             rota = ['', '', '', '', '', '', '', '', '', '', '', '']
         else:
             rota.append(str(vscount))
-            win = df1[df1['WinLose'].isin(['승'])]
+            win = df1[df1['WinLose'].isin([self.win_lose[0]])]
             rota.append(str(len(win)))
-            lose = df1[df1['WinLose'].isin(['패'])]
+            lose = df1[df1['WinLose'].isin([self.win_lose[1]])]
             rota.append(str(len(lose)))
             wr = round(len(win) / vscount * 100, 1)
             wr = str(wr) + '%'
             rota.append(wr)
-            first = df1[df1['FirstSecond'].isin(['선공'])]
+            first = df1[df1['FirstSecond'].isin([self.fir_sec[0]])]
             if len(first) == 0:
                 rota.extend(['N/A', 'N/A', 'N/A', 'N/A'])
             else:
                 rota.append(str(len(first)))
-                fwin = first[first['WinLose'].isin(['승'])]
+                fwin = first[first['WinLose'].isin([self.win_lose[0]])]
                 rota.append(str(len(fwin)))
-                flose = first[first['WinLose'].isin(['패'])]
+                flose = first[first['WinLose'].isin([self.win_lose[1]])]
                 rota.append(str(len(flose)))
                 fwr = round(len(fwin) / len(first) * 100, 1)
                 fwr = str(fwr) + '%'
                 rota.append(fwr)
-            second = df1[df1['FirstSecond'].isin(['후공'])]
+            second = df1[df1['FirstSecond'].isin([self.fir_sec[1]])]
             if len(second) == 0:
                 rota.extend(['N/A', 'N/A', 'N/A', 'N/A'])
             else:
                 rota.append(str(len(second)))
-                swin = second[second['WinLose'].isin(['승'])]
+                swin = second[second['WinLose'].isin([self.win_lose[0]])]
                 rota.append(str(len(swin)))
-                slose = second[second['WinLose'].isin(['패'])]
+                slose = second[second['WinLose'].isin([self.win_lose[1]])]
                 rota.append(str(len(slose)))
                 swr = round(len(swin) / len(second) * 100, 1)
                 swr = str(swr) + '%'
                 rota.append(swr)
-        df1 = df[df['Mod'].isin(['언리미티드'])]
+        df1 = df[df['Mod'].isin([self.mods[1]])]
         vscount = len(df1)
         unli = []
         if vscount == 0:
             unli = ['', '', '', '', '', '', '', '', '', '', '', '']
         else:
             unli.append(str(vscount))
-            win = df1[df1['WinLose'].isin(['승'])]
+            win = df1[df1['WinLose'].isin([self.win_lose[0]])]
             unli.append(str(len(win)))
-            lose = df1[df1['WinLose'].isin(['패'])]
+            lose = df1[df1['WinLose'].isin([self.win_lose[1]])]
             unli.append(str(len(lose)))
             wr = round(len(win) / vscount * 100, 1)
             wr = str(wr) + '%'
             unli.append(wr)
-            first = df1[df1['FirstSecond'].isin(['선공'])]
+            first = df1[df1['FirstSecond'].isin([self.fir_sec[0]])]
             if len(first) == 0:
                 unli.extend(['N/A', 'N/A', 'N/A', 'N/A'])
             else:
                 unli.append(str(len(first)))
-                fwin = first[first['WinLose'].isin(['승'])]
+                fwin = first[first['WinLose'].isin([self.win_lose[0]])]
                 unli.append(str(len(fwin)))
-                flose = first[first['WinLose'].isin(['패'])]
+                flose = first[first['WinLose'].isin([self.win_lose[1]])]
                 unli.append(str(len(flose)))
                 fwr = round(len(fwin) / len(first) * 100, 1)
                 fwr = str(fwr) + '%'
                 unli.append(fwr)
-            second = df1[df1['FirstSecond'].isin(['후공'])]
+            second = df1[df1['FirstSecond'].isin([self.fir_sec[1]])]
             if len(second) == 0:
                 unli.extend(['N/A', 'N/A', 'N/A', 'N/A'])
             else:
                 unli.append(str(len(second)))
-                swin = second[second['WinLose'].isin(['승'])]
+                swin = second[second['WinLose'].isin([self.win_lose[0]])]
                 unli.append(str(len(swin)))
-                slose = second[second['WinLose'].isin(['패'])]
+                slose = second[second['WinLose'].isin([self.win_lose[1]])]
                 unli.append(str(len(slose)))
                 swr = round(len(swin) / len(second) * 100, 1)
                 swr = str(swr) + '%'
@@ -595,11 +691,11 @@ class Form(QMainWindow, form_class):
     # 모드버튼 in 덱별 승률
     def deckmodbtn(self):
         if self.radioDeckRota.isChecked():
-            self.deckmod = '로테이션'
-            self.groupDeckRecord.setTitle('기간 내 로테이션 전적')
+            self.deckmod = self.mods[0]
+            self.groupDeckRecord.setTitle(self.msgs[2])
         elif self.radioDeckUnli.isChecked():
-            self.deckmod = '언리미티드'
-            self.groupDeckRecord.setTitle('기간 내 언리미티드 전적')
+            self.deckmod = self.mods[1]
+            self.groupDeckRecord.setTitle(self.msgs[3])
         if self.deckmodcheck == 0:
             self.radioDeckAll.setEnabled(True)
             self.radioDeckPeriod.setEnabled(True)
@@ -625,10 +721,10 @@ class Form(QMainWindow, form_class):
             if self.checkdmini.isChecked():
                 cp = cp + 'm'
             df2 = df1[df1['CardPack'].isin([cp])]
-        if self.deckmod == '로테이션':
-            df3 = df2[df2['Mod'].isin(['로테이션'])]
-        elif self.deckmod == '언리미티드':
-            df3 = df2[df2['Mod'].isin(['언리미티드'])]
+        if self.deckmod == self.mods[0]:
+            df3 = df2[df2['Mod'].isin([self.mods[0]])]
+        elif self.deckmod == self.mods[1]:
+            df3 = df2[df2['Mod'].isin([self.mods[1]])]
         self.df2 = df3
         self.deckrecordupdate()
         df4 = df3.drop_duplicates(['MyArche'])
@@ -638,8 +734,8 @@ class Form(QMainWindow, form_class):
         for deck in lists:
             record = []
             vs = df3[df3['MyArche'].isin([deck])]
-            win = vs[vs['WinLose'].isin(['승'])]
-            lose = vs[vs['WinLose'].isin(['패'])]
+            win = vs[vs['WinLose'].isin([self.win_lose[0]])]
+            lose = vs[vs['WinLose'].isin([self.win_lose[1]])]
             record.append(len(vs))
             record.append(len(win))
             record.append(len(lose))
@@ -651,13 +747,13 @@ class Form(QMainWindow, form_class):
     def deckrecordupdate(self):
         df = self.df2
         if len(df) == 0:
-            self.DeckVS.setText('전적없음')
+            self.DeckVS.setText(self.msgs[4])
             self.DeckWin.setText('N/A')
             self.DeckLose.setText('N/A')
             self.DeckWinRate.setText('N/A')
             return
-        win = df[df['WinLose'].isin(['승'])]
-        lose = df[df['WinLose'].isin(['패'])]
+        win = df[df['WinLose'].isin([self.win_lose[0]])]
+        lose = df[df['WinLose'].isin([self.win_lose[1]])]
         winrate = str(round(len(win) * 100 / len(df), 1)) + '%'
         self.DeckVS.setText(str(len(df)))
         self.DeckWin.setText(str(len(win)))
@@ -695,41 +791,42 @@ class Form(QMainWindow, form_class):
         for i in range(8):
             if len(df) > i:
                 name = self.names[i]
-                vs = str(df.iloc[i, 0]) + '전 ' + str(df.iloc[i, 1]) + '승 ' + str(df.iloc[i, 2]) + '패'
-                self.labels[i*4].setText(vs)
-                colors = ['lightskyblue', 'red']
-                labels = ['승', '패']
+                vs = str(df.iloc[i, 0]) + self.msgs[5] + ' ' + str(df.iloc[i, 1]) + self.win_lose[0] + ' ' + str(
+                    df.iloc[i, 2]) + self.win_lose[1]
+                self.labels[i * 4].setText(vs)
+                colors = ['red', 'lightskyblue']
+                labels = [self.win_lose[0], self.win_lose[1]]
                 ratio = [df.iloc[i, 1], df.iloc[i, 2]]
                 d1 = self.figure1.add_subplot(spl[i])
                 d1.pie(ratio, labels=labels, colors=colors, autopct='%1.1f%%', startangle=90)
                 d1.set_title(name, fontdict={'fontsize': 11}, pad=40)
                 df1 = self.df2
                 df1 = df1[df1['MyArche'].isin([name])]
-                first = df1[df1['FirstSecond'].isin(['선공'])]
-                firstwin = first[first['WinLose'].isin(['승'])]
-                second = df1[df1['FirstSecond'].isin(['후공'])]
-                secondwin = second[second['WinLose'].isin(['승'])]
+                first = df1[df1['FirstSecond'].isin([self.fir_sec[0]])]
+                firstwin = first[first['WinLose'].isin([self.win_lose[0]])]
+                second = df1[df1['FirstSecond'].isin([self.fir_sec[1]])]
+                secondwin = second[second['WinLose'].isin([self.win_lose[0]])]
                 turn = round(df1['Turn'].mean(skipna=True), 2)
                 if len(first) == 0:
-                    self.labels[i*4+1].setText('N/A')
+                    self.labels[i * 4 + 1].setText('N/A')
                 else:
-                    wr1st = '선공 ' + str(round(len(firstwin) * 100 / len(first), 1)) + '%'
-                    self.labels[i*4+1].setText(wr1st)
+                    wr1st = self.fir_sec[0] + ' ' + str(round(len(firstwin) * 100 / len(first), 1)) + '%'
+                    self.labels[i * 4 + 1].setText(wr1st)
                 if len(second) == 0:
-                    self.labels[i*4+2].setText('N/A')
+                    self.labels[i * 4 + 2].setText('N/A')
                 else:
-                    wr2nd = '후공 ' + str(round(len(secondwin) * 100 / len(second), 1)) + '%'
-                    self.labels[i*4+2].setText(wr2nd)
+                    wr2nd = self.fir_sec[1] + ' ' + str(round(len(secondwin) * 100 / len(second), 1)) + '%'
+                    self.labels[i * 4 + 2].setText(wr2nd)
                 if str(type(turn)) == "<class 'float'>":
-                    self.labels[i * 4 + 3].setText('턴 정보 없음')
+                    self.labels[i * 4 + 3].setText(self.lb_msgs[0])
                 else:
-                    self.labels[i*4+3].setText('평균 ' + str(turn) + '턴')
+                    self.labels[i * 4 + 3].setText(self.lb_msgs[1] + ' ' + str(turn) + self.lb_msgs[2])
                 self.deck_btns[i].setEnabled(True)
             else:
-                self.labels[i*4].setText('')
-                self.labels[i*4+1].setText('')
-                self.labels[i*4+2].setText('')
-                self.labels[i*4+3].setText('')
+                self.labels[i * 4].setText('')
+                self.labels[i * 4 + 1].setText('')
+                self.labels[i * 4 + 2].setText('')
+                self.labels[i * 4 + 3].setText('')
                 self.deck_btns[i].setEnabled(False)
 
     # 덱 상세
@@ -745,9 +842,9 @@ class Form(QMainWindow, form_class):
     # 모드 버튼 in 덱별 전적
     def deckrmodbtn(self):
         if self.radioDeckRRota.isChecked():
-            self.deckrmod = '로테이션'
+            self.deckrmod = self.mods[0]
         elif self.radioDeckRUnli.isChecked():
-            self.deckrmod = '언리미티드'
+            self.deckrmod = self.mods[1]
         if self.deckrmodcheck == 0:
             self.radioDeckRPeriod.setEnabled(True)
             self.radioDeckRCP.setEnabled(True)
@@ -769,10 +866,10 @@ class Form(QMainWindow, form_class):
             if self.checkdrmini.isChecked():
                 cp = cp + 'm'
             df2 = df1[df1['CardPack'].isin([cp])]
-        if self.deckrmod == '로테이션':
-            df3 = df2[df2['Mod'].isin(['로테이션'])]
-        elif self.deckrmod == '언리미티드':
-            df3 = df2[df2['Mod'].isin(['언리미티드'])]
+        if self.deckrmod == self.mods[0]:
+            df3 = df2[df2['Mod'].isin([self.mods[0]])]
+        elif self.deckrmod == self.mods[1]:
+            df3 = df2[df2['Mod'].isin([self.mods[1]])]
         self.df5 = df3
         df4 = df3.drop_duplicates(['MyArche'])
         lists = list(set(df4['MyArche']))
@@ -793,7 +890,7 @@ class Form(QMainWindow, form_class):
     # 덱별 전적 아키타입
     def cb_rec_arche(self):
         self.deckrarche = self.comboDeckR.currentText()
-        self.DeckRVS.setText('전적없음')
+        self.DeckRVS.setText(self.msgs[4])
         self.DeckRWin.setText('N/A')
         self.DeckRLose.setText('N/A')
         self.DeckRWinRate.setText('N/A')
@@ -807,13 +904,13 @@ class Form(QMainWindow, form_class):
         df = df[df['MyArche'].isin([self.deckrarche])]
         self.df6 = df
         if len(df) == 0:
-            self.DeckVS.setText('전적없음')
+            self.DeckVS.setText(self.msgs[4])
             self.DeckWin.setText('N/A')
             self.DeckLose.setText('N/A')
             self.DeckWinRate.setText('N/A')
             return
-        win = df[df['WinLose'].isin(['승'])]
-        lose = df[df['WinLose'].isin(['패'])]
+        win = df[df['WinLose'].isin([self.win_lose[0]])]
+        lose = df[df['WinLose'].isin([self.win_lose[1]])]
         winrate = str(round(len(win) * 100 / len(df), 1)) + '%'
         self.DeckRVS.setText(str(len(df)))
         self.DeckRWin.setText(str(len(win)))
@@ -831,10 +928,10 @@ class Form(QMainWindow, form_class):
     # 선후공 승률 막대 그래프 in 덱별 전적
     def fsgraph(self):
         df = self.df6
-        df1 = df[df['FirstSecond'].isin(['선공'])]
-        df1_1 = df1[df1['WinLose'].isin(['승'])]
-        df2 = df[df['FirstSecond'].isin(['후공'])]
-        df2_1 = df2[df2['WinLose'].isin(['승'])]
+        df1 = df[df['FirstSecond'].isin([self.fir_sec[0]])]
+        df1_1 = df1[df1['WinLose'].isin([self.win_lose[0]])]
+        df2 = df[df['FirstSecond'].isin([self.fir_sec[1]])]
+        df2_1 = df2[df2['WinLose'].isin([self.win_lose[0]])]
         if len(df1) == 0:
             fwin = 0
         else:
@@ -845,8 +942,8 @@ class Form(QMainWindow, form_class):
             swin = round(len(df2_1) * 100 / len(df2), 1)
         self.figure2.clear()
         ax = self.figure2.add_subplot(111)
-        rects1 = ax.barh(2, fwin, align='center', color='lightskyblue', height=0.5, label='선공')
-        rects2 = ax.barh(1, swin, align='center', color='xkcd:pistachio', height=0.5, label='후공')
+        rects1 = ax.barh(2, fwin, align='center', color='lightskyblue', height=0.5, label=self.fir_sec[0])
+        rects2 = ax.barh(1, swin, align='center', color='xkcd:pistachio', height=0.5, label=self.fir_sec[1])
         ax.set_xlim([0, 100])
         ax.set_yticks([])
         if fwin >= 40:
@@ -869,24 +966,24 @@ class Form(QMainWindow, form_class):
         self.figure2.clear()
 
     def deckr1(self):
-        cls = ['엘프', '로얄', '위치', '비숍']
+        cls = self.crafts[:4]
         # 직업별 색상 [메인RGB, 서브RGB]
-        cls_cl = {"엘프": [207, 247, 99, 176, 239, 12], "로얄": [253, 251, 140, 197, 191, 3],
-                  "위치": [158, 168, 240, 92, 109, 231], "비숍": [255, 255, 255, 190, 190, 190]}
+        cls_cl = {cls[0]: [207, 247, 99, 176, 239, 12], cls[1]: [253, 251, 140, 197, 191, 3],
+                  cls[2]: [158, 168, 240, 92, 109, 231], cls[3]: [255, 255, 255, 190, 190, 190]}
         for i in range(4):
             df = self.df6
             df1 = df[df['OppoJob'].isin([cls[i]])]
             vsc = len(df1)
             if vsc == 0:
-                rec = ['VS'+cls[i], '0', '0', '0', 'N/A', 'N/A', 'N/A']
+                rec = ['VS ' + cls[i], '0', '0', '0', 'N/A', 'N/A', 'N/A']
             else:
-                win = len(df1[df1['WinLose'].isin(['승'])])
-                lose = len(df1[df1['WinLose'].isin(['패'])])
+                win = len(df1[df1['WinLose'].isin([self.win_lose[0]])])
+                lose = len(df1[df1['WinLose'].isin([self.win_lose[1]])])
                 winrate = str(round(win * 100 / vsc, 1)) + '%'
-                df2 = df1[df1['FirstSecond'].isin(['선공'])]
-                df2_1 = df2[df2['WinLose'].isin(['승'])]
-                df3 = df1[df1['FirstSecond'].isin(['후공'])]
-                df3_1 = df3[df3['WinLose'].isin(['승'])]
+                df2 = df1[df1['FirstSecond'].isin([self.fir_sec[0]])]
+                df2_1 = df2[df2['WinLose'].isin([self.win_lose[0]])]
+                df3 = df1[df1['FirstSecond'].isin([self.fir_sec[1]])]
+                df3_1 = df3[df3['WinLose'].isin([self.win_lose[0]])]
                 if len(df2) == 0:
                     fwin = 'N/A'
                 else:
@@ -895,7 +992,7 @@ class Form(QMainWindow, form_class):
                     swin = 'N/A'
                 else:
                     swin = str(round(len(df3_1) * 100 / len(df3), 1)) + '%'
-                rec = ['VS'+cls[i], str(vsc), str(win), str(lose), winrate, fwin, swin]
+                rec = ['VS ' + cls[i], str(vsc), str(win), str(lose), winrate, fwin, swin]
             rowcount = self.tableDeckR1.rowCount()
             self.tableDeckR1.insertRow(rowcount)
             for j, text in enumerate(rec):
@@ -912,13 +1009,13 @@ class Form(QMainWindow, form_class):
                 for arche in lists:
                     df1 = df[df['OppoArche'].isin([arche])]
                     vsc = len(df1)
-                    win = len(df1[df1['WinLose'].isin(['승'])])
-                    lose = len(df1[df1['WinLose'].isin(['패'])])
+                    win = len(df1[df1['WinLose'].isin([self.win_lose[0]])])
+                    lose = len(df1[df1['WinLose'].isin([self.win_lose[1]])])
                     winrate = str(round(win * 100 / vsc, 1)) + '%'
-                    df2 = df1[df1['FirstSecond'].isin(['선공'])]
-                    df2_1 = df2[df2['WinLose'].isin(['승'])]
-                    df3 = df1[df1['FirstSecond'].isin(['후공'])]
-                    df3_1 = df3[df3['WinLose'].isin(['승'])]
+                    df2 = df1[df1['FirstSecond'].isin([self.fir_sec[0]])]
+                    df2_1 = df2[df2['WinLose'].isin([self.win_lose[0]])]
+                    df3 = df1[df1['FirstSecond'].isin([self.fir_sec[1]])]
+                    df3_1 = df3[df3['WinLose'].isin([self.win_lose[0]])]
                     if len(df2) == 0:
                         fwin = 'N/A'
                     else:
@@ -938,24 +1035,24 @@ class Form(QMainWindow, form_class):
                         self.tableDeckR1.setItem(rowcount, j, item)
 
     def deckr2(self):
-        cls = ['네크로맨서', '드래곤', '뱀파이어', '네메시스']
+        cls = self.crafts[4:]
         # 직업별 색상 [메인RGB, 서브RGB]
-        cls_cl = {"네크로맨서": [242, 178, 255, 226, 89, 255], "드래곤": [255, 232, 99, 249, 211, 0],
-                  "뱀파이어": [255, 125, 177, 255, 40, 126], "네메시스": [215, 255, 255, 155, 255, 255]}
+        cls_cl = {cls[0]: [255, 232, 99, 249, 211, 0], cls[1]: [242, 178, 255, 226, 89, 255],
+                  cls[2]: [255, 125, 177, 255, 40, 126], cls[3]: [215, 255, 255, 155, 255, 255]}
         for i in range(4):
             df = self.df6
             df1 = df[df['OppoJob'].isin([cls[i]])]
             vsc = len(df1)
             if vsc == 0:
-                rec = ['VS'+cls[i], '0', '0', '0', 'N/A', 'N/A', 'N/A']
+                rec = ['VS ' + cls[i], '0', '0', '0', 'N/A', 'N/A', 'N/A']
             else:
-                win = len(df1[df1['WinLose'].isin(['승'])])
-                lose = len(df1[df1['WinLose'].isin(['패'])])
+                win = len(df1[df1['WinLose'].isin([self.win_lose[0]])])
+                lose = len(df1[df1['WinLose'].isin([self.win_lose[1]])])
                 winrate = str(round(win * 100 / vsc, 1)) + '%'
-                df2 = df1[df1['FirstSecond'].isin(['선공'])]
-                df2_1 = df2[df2['WinLose'].isin(['승'])]
-                df3 = df1[df1['FirstSecond'].isin(['후공'])]
-                df3_1 = df3[df3['WinLose'].isin(['승'])]
+                df2 = df1[df1['FirstSecond'].isin([self.fir_sec[0]])]
+                df2_1 = df2[df2['WinLose'].isin([self.win_lose[0]])]
+                df3 = df1[df1['FirstSecond'].isin([self.fir_sec[1]])]
+                df3_1 = df3[df3['WinLose'].isin([self.win_lose[0]])]
                 if len(df2) == 0:
                     fwin = 'N/A'
                 else:
@@ -964,7 +1061,7 @@ class Form(QMainWindow, form_class):
                     swin = 'N/A'
                 else:
                     swin = str(round(len(df3_1) * 100 / len(df3), 1)) + '%'
-                rec = ['VS'+cls[i], str(vsc), str(win), str(lose), winrate, fwin, swin]
+                rec = ['VS ' + cls[i], str(vsc), str(win), str(lose), winrate, fwin, swin]
             rowcount = self.tableDeckR2.rowCount()
             self.tableDeckR2.insertRow(rowcount)
             for j, text in enumerate(rec):
@@ -981,13 +1078,13 @@ class Form(QMainWindow, form_class):
                 for arche in lists:
                     df1 = df[df['OppoArche'].isin([arche])]
                     vsc = len(df1)
-                    win = len(df1[df1['WinLose'].isin(['승'])])
-                    lose = len(df1[df1['WinLose'].isin(['패'])])
+                    win = len(df1[df1['WinLose'].isin([self.win_lose[0]])])
+                    lose = len(df1[df1['WinLose'].isin([self.win_lose[1]])])
                     winrate = str(round(win * 100 / vsc, 1)) + '%'
-                    df2 = df1[df1['FirstSecond'].isin(['선공'])]
-                    df2_1 = df2[df2['WinLose'].isin(['승'])]
-                    df3 = df1[df1['FirstSecond'].isin(['후공'])]
-                    df3_1 = df3[df3['WinLose'].isin(['승'])]
+                    df2 = df1[df1['FirstSecond'].isin([self.fir_sec[0]])]
+                    df2_1 = df2[df2['WinLose'].isin([self.win_lose[0]])]
+                    df3 = df1[df1['FirstSecond'].isin([self.fir_sec[1]])]
+                    df3_1 = df3[df3['WinLose'].isin([self.win_lose[0]])]
                     if len(df2) == 0:
                         fwin = 'N/A'
                     else:
@@ -1015,41 +1112,25 @@ class Form(QMainWindow, form_class):
             return
         self.status = self.status_u = True
         for cls, lb in zip(self.crafts, self.status_list):
-            num = len(d_check("로테이션", self.ccp, cls))
-            lb.setText(str(num) + "개")
+            num = len(d_check(self.mods[0], self.ccp, cls))
+            lb.setText(str(num) + self.lb_msgs[3])
             if num == 0:
                 self.status = False
         for cls, lb in zip(self.crafts, self.status_list_u):
-            num = len(d_check("언리미티드", self.ccp, cls))
-            lb.setText(str(num) + "개")
+            num = len(d_check(self.mods[1], self.ccp, cls))
+            lb.setText(str(num) + self.lb_msgs[3])
             if num == 0:
                 self.status = False
         self.stat_c = True
         self.al_enable()
 
-    def auto_mod(self):
-        mod = ''
-        if self.radioautoRota.isChecked():
-            mod = '로테이션'
-        elif self.radioautoUnli.isChecked():
-            mod = '언리미티드'
-        self.amod = mod
-
     def al_enable(self):
         if self.status and self.status_u:
-            self.lb_alarm.setText('기록을 시작하려면 시작 버튼을 누르세요.')
+            self.lb_alarm.setText(self.lb_msgs[4])
             self.pushal.setEnabled(True)
         else:
-            self.lb_alarm.setText('메뉴로 들어가 덱을 확인해주세요.')
+            self.lb_alarm.setText(self.lb_msgs[5])
             self.pushal.setEnabled(False)
-
-    """
-    def auto_cp(self):
-        ccp = self.comboautocp.currentText()
-        if self.checkautomini.isChecked():
-            ccp = ccp + 'm'
-        self.ccp = ccp
-    """
 
     def autologstart(self):
         logger.info("자동기록 시작")
@@ -1058,6 +1139,8 @@ class Form(QMainWindow, form_class):
         self.al_work = True
         self.toggle_watchdog()
         self.autolog()
+        self.thread1.working = True
+        self.thread1.start()
 
     def toggle_watchdog(self):
         if self.is_watchdog:
@@ -1073,12 +1156,233 @@ class Form(QMainWindow, form_class):
                 self.watch.watchdog_on()
                 self.is_watchdog = True
             except Exception as e:
-                # Log.e(self.tag, 'directory path error! :', e.__class__.__name__)
+                logger.warning("디렉토리 오류")
                 return
 
-    def auto_load_img(self, number):
-        logger.info(str(number) + " 이미지 불러오기 시작")
-        path = "./resources/" + str(number) + "/"
+    def autolog(self):
+        self.lb_alarm.setText(self.lb_msgs[6])
+        self.lb_alarm.setStyleSheet(self.ok_style)
+
+    @pyqtSlot()
+    def not_found(self):
+        self.lb_alarm.setText(self.msgs[7])
+        self.lb_alarm.setStyleSheet("background-color:rgba(255,131,0,50)")
+        self.pushal.setEnabled(True)
+        self.pushstop.setEnabled(False)
+        logger.warning("창 못찾음")
+
+    @pyqtSlot()
+    def minimized(self):
+        self.lb_alarm.setText(self.msgs[8])
+        self.lb_alarm.setStyleSheet("background-color:rgba(255,131,0,50)")
+        self.pushal.setEnabled(True)
+        self.pushstop.setEnabled(False)
+        logger.warning("창 최소화됨")
+
+    @pyqtSlot()
+    def req_resize(self):
+        self.lb_alarm.setText(self.msgs[9])
+        self.lb_alarm.setStyleSheet("background-color:rgba(255,131,0,50)")
+
+    @pyqtSlot(int)
+    def auto_mod(self, num):
+        self.amod = self.mods[num]
+
+    @pyqtSlot(int)
+    def auto_first(self, num):
+        self.first = self.fir_sec[num]
+
+    @pyqtSlot(int)
+    def auto_oppo_craft(self, num):
+        self.oppo_cls = self.crafts[num]
+
+    @pyqtSlot(int)
+    def auto_my_craft(self, num):
+        self.my_cls = self.crafts[num]
+
+    @pyqtSlot()
+    def auto_preview(self):
+        text = self.lb_msgs[6] + "(" + self.atype + ")"
+        if self.atype != self.types[1]:
+            text = text + self.lb_msgs[8].format(self.types[1])
+        self.lb_alarm.setText(text)
+        if (self.atype in self.types[3:]) or (self.atype == self.types[2] and self.amod == ""):
+            return
+        self.today = datetime.now().strftime('%Y-%m-%d')
+        self.lb_day.setText(self.today)
+        self.lb_cp.setText(self.ccp)
+        self.lb_mod.setText(self.amod)
+        self.lb_fs.setText(self.first)
+        self.lb_mycls.setText(self.my_cls)
+        self.lb_opcls.setText(self.oppo_cls)
+        mydecklist = d_check(self.amod, self.ccp, self.my_cls)
+        self.cb_mydeck.clear()
+        self.cb_mydeck.addItems(mydecklist)
+        if self.amod == self.amod_2 and self.my_cls == self.my_cls_2 and self.cb_fix.isChecked():
+            self.mydeck = self.mydeck_2
+        else:
+            self.mydeck = self.lb_msgs[7]
+        self.cb_mydeck.setCurrentText(self.mydeck)
+        opdecklist = d_check(self.amod, self.ccp, self.oppo_cls)
+        self.cb_opdeck.clear()
+        self.cb_opdeck.addItems(opdecklist)
+        self.opdeck = self.lb_msgs[7]
+        self.cb_opdeck.setCurrentText(self.opdeck)
+
+    @pyqtSlot(int)
+    def auto_win(self, num):
+        self.win = self.win_lose[num]
+
+    @pyqtSlot()
+    def auto_result(self):
+        if self.atype in self.types[3:]:
+            pass
+        else:
+            self.logtime = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            self.lb_wl.setText(self.win)
+            self.lb_wl_style(self.lb_wl, self.win)
+            self.lb_logtime.setText(self.logtime)
+            self.lb_turn.setText(str(self.aturn))
+        self.alarm()
+
+    @pyqtSlot(str, str)
+    def signal_m(self, clf, text):
+        if clf == "type":
+            self.atype = self.types[int(text)]
+            logger.info(self.atype + " 매칭 중")
+            if not self.in_match:
+                self.in_match = True
+        elif clf == "turn":
+            self.aturn = int(text.split('n')[1])
+            logger.info(text + " 종료")
+            if self.in_match:
+                self.in_match = False
+                if self.atype == self.types[4]:
+                    self.auto_result()
+
+    def lb_wl_style(self, label, wl):
+        if wl == self.win_lose[0]:
+            label.setStyleSheet(self.win_style)
+        else:
+            label.setStyleSheet(self.lose_style)
+
+    def auto_mydeck(self):
+        self.mydeck = self.cb_mydeck.currentText()
+
+    def auto_opdeck(self):
+        self.opdeck = self.cb_opdeck.currentText()
+
+    def alarm(self):
+        if self.al_timer == 5:
+            logger.info("매치 종료")
+        if self.al_timer == 0:
+            if self.atype == self.types[1]:
+                write_record(self, self.ccp, self.amod, self.my_cls, self.mydeck, self.oppo_cls, self.opdeck,
+                             self.first, self.win, self.atype, self.aturn)
+                logger.info("기록 저장")
+            if self.atype != self.types[3]:
+                self.lb_day2.setText(self.today)
+                self.lb_cp2.setText(self.ccp)
+                self.lb_mod2.setText(self.amod)
+                self.lb_fs2.setText(self.first)
+                self.lb_mycls2.setText(self.my_cls)
+                self.lb_mydeck2.setText(self.mydeck)
+                self.lb_opcls2.setText(self.oppo_cls)
+                self.lb_opdeck2.setText(self.opdeck)
+                self.lb_wl2.setText(self.win)
+                self.lb_wl_style(self.lb_wl2, self.win)
+                self.lb_logtime2.setText(self.logtime)
+                self.lb_turn2.setText(str(self.aturn))
+                self.amod_2 = self.amod
+                self.my_cls_2 = self.my_cls
+                self.mydeck_2 = self.mydeck
+            self.auto_init()
+            load_data(self)
+            self.table_rate()
+            self.al_timer = 5
+            self.autolog()
+            return
+        if self.atype == self.types[1]:
+            text = self.lb_msgs[9].format(self.al_timer)
+        else:
+            text = self.lb_msgs[11].format(self.atype, self.al_timer)
+        self.lb_alarm.setText(text)
+        self.al_timer -= 1
+        self.timer1 = threading.Timer(1, self.alarm)
+        self.timer1.start()
+
+    def auto_init(self):
+        self.first = ""
+        self.win = ""
+        self.my_cls = ""
+        self.mydeck = ""
+        self.oppo_cls = ""
+        self.opdeck = ""
+        self.amod = ""
+        self.atype = ""
+        self.aturn = 0
+        self.lb_day.setText("")
+        self.lb_cp.setText("")
+        self.lb_mod.setText("")
+        self.lb_fs.setText("")
+        self.lb_mycls.setText("")
+        self.cb_mydeck.clear()
+        self.lb_opcls.setText("")
+        self.cb_opdeck.clear()
+        self.lb_wl.setText("")
+        self.lb_wl.setStyleSheet(self.init_style)
+        self.lb_logtime.setText("")
+        self.lb_turn.setText("")
+        logger.info("라벨 초기화")
+
+    def stop(self):
+        self.atype = ""
+        self.timer1.cancel()
+        self.auto_init()
+        if self.is_watchdog:
+            self.toggle_watchdog()
+        self.al_work = False
+        self.thread1.working = False
+        self.thread1.wait()
+        self.pushal.setEnabled(True)
+        self.pushstop.setEnabled(False)
+        self.lb_alarm.setText(self.lb_msgs[10])
+        self.lb_alarm.setStyleSheet(self.init_style)
+        logger.info("기록 중지")
+
+    def closeEvent(self, event):
+        if self.al_work:
+            self.timer1.cancel()
+            self.thread1.stop()
+            event.accept()
+        else:
+            event.accept()
+
+
+class Worker(QThread):
+    def __init__(self):
+        super().__init__()
+        self.working = True
+
+    not_found = pyqtSignal()
+    minimize = pyqtSignal()
+    req_resizing = pyqtSignal()
+    auto_mod = pyqtSignal(int)
+    first = pyqtSignal(int)
+    oppo_craft = pyqtSignal(int)
+    my_craft = pyqtSignal(int)
+    auto_preview = pyqtSignal()
+    auto_win = pyqtSignal(int)
+    auto_result = pyqtSignal()
+    current_size = img_size = 0
+    mulligan = fsdecision = oppocls_al = mycls_al = preview = wldecision = False
+
+    def auto_load_img(self, size):
+        config = configparser.ConfigParser()
+        config.read("config.ini")
+        self.loc = config["locale"]["locale"]
+        logger.info(str(size[0]) + " 이미지 불러오기 시작")
+        path = "./resources/" + self.loc + "/" + str(size[0]) + "/"
         bloodicon = Image.open(path + "BloodIcon.png")
         bloodpost = Image.open(path + "BloodPost.png")
         dragonicon = Image.open(path + "DragonIcon.png")
@@ -1105,271 +1409,140 @@ class Form(QMainWindow, form_class):
         img_u = Image.open(path + "unli.png")
         self.miscs = [img1, img2, img_v, img_d, img_r, img_u]
         # [0]: 로테/언리, [1]: 선공/후공, [2]: 상대 직업, [3]: 내 직업, [4]: 승/패
-        if number == 1280:
-            self.regions = [(615, 30, 665, 75), (0, 0, 200, 150), (1000, 0, 280, 100),
-                            (0, 490, 220, 100), (150, 55, 240, 25)]
-        elif number == 1600:
-            self.regions = [(770, 40, 60, 55), (15, 10, 120, 95), (1355, 18, 45, 45),
-                            (30, 625, 220, 100), (170, 65, 310, 30)]
+        if size[0] == 1280:
+            self.regions = [(615, int((size[1] - 720) / 2) + 20, 55, 75), (0, 0, 200, 150), (1000, 0, 280, 45),
+                            (0, size[1] - 230, 220, 100), (150, int((size[1] - 720) / 2) + 45, 240, 35)]
+        elif size[0] == 1600:
+            self.regions = [(770, int((size[1] - 900) / 2) + 30, 60, 75), (15, 10, 120, 95), (1355, 18, 45, 45),
+                            (30, size[1] - 275, 220, 100), (170, int((size[1] - 900) / 2) + 55, 310, 40)]
         else:
-            self.regions = [(925, 48, 70, 70), (20, 13, 145, 110), (1630, 23, 50, 50),
-                            (40, 760, 255, 110), (210, 85, 360, 30)]
-        self.img_size = number
+            self.regions = [(925, int((size[1] - 1080) / 2) + 40, 70, 80), (20, 13, 145, 110), (1630, 23, 50, 50),
+                            (40, size[1] - 320, 255, 110), (210, int((size[1] - 1080) / 2) + 75, 360, 50)]
+        self.img_size = size
         logger.info("이미지 불러오기 끝")
 
-    def autolog(self):
-        # if self.al_work:
-        self.lb_alarm.setText('데이터 수집 중')
+    def run(self):
+        while self.working:
+            hwnd = win32gui.FindWindow(None, 'Shadowverse')
+            try:
+                left, top, right, bot = win32gui.GetClientRect(hwnd)
+            except:
+                self.not_found.emit()
+                break
+            w = right - left
+            h = bot - top
 
-        # self.al_work = True
+            hwndDC = win32gui.GetWindowDC(hwnd)
+            mfcDC = win32ui.CreateDCFromHandle(hwndDC)
+            saveDC = mfcDC.CreateCompatibleDC()
 
-        hwnd = win32gui.FindWindow(None, 'Shadowverse')
-        try:
-            left, top, right, bot = win32gui.GetClientRect(hwnd)
-        except:
-            ans = QMessageBox.warning(self, '주의', '창을 찾을 수 없습니다.', QMessageBox.Ok, QMessageBox.Ok)
-            self.stop()
-            logger.warning("창 못찾음")
-            return
-        w = right - left
-        h = bot - top
+            saveBitMap = win32ui.CreateBitmap()
+            saveBitMap.CreateCompatibleBitmap(mfcDC, w, h)
 
-        if not self.atype == "랭크전":
-            self.timer = threading.Timer(0.5, self.autolog)
-            self.timer.start()
-            return
+            saveDC.SelectObject(saveBitMap)
 
-        hwndDC = win32gui.GetWindowDC(hwnd)
-        mfcDC  = win32ui.CreateDCFromHandle(hwndDC)
-        saveDC = mfcDC.CreateCompatibleDC()
+            result = windll.user32.PrintWindow(hwnd, saveDC.GetSafeHdc(), 1)
 
-        saveBitMap = win32ui.CreateBitmap()
-        saveBitMap.CreateCompatibleBitmap(mfcDC, w, h)
+            bmpinfo = saveBitMap.GetInfo()
+            bmpstr = saveBitMap.GetBitmapBits(True)
 
-        saveDC.SelectObject(saveBitMap)
-
-        result = windll.user32.PrintWindow(hwnd, saveDC.GetSafeHdc(), 1)
-
-        bmpinfo = saveBitMap.GetInfo()
-        bmpstr = saveBitMap.GetBitmapBits(True)
-
-        try:
-            im = Image.frombuffer('RGB', (bmpinfo['bmWidth'], bmpinfo['bmHeight']), bmpstr, 'raw', 'BGRX', 0, 1)
-        except ValueError:
-            QMessageBox.warning(self, '주의', '창이 최소화되어 있습니다.', QMessageBox.Ok, QMessageBox.Ok)
-            self.stop()
-            logger.warning("창 최소화됨")
-            return
-
-        window_size = [(1280, 720), (1600, 900), (1920, 1080)]
-        size_check = False
-        for i in range(3):
-            if im.size[0] == window_size[i][0] and im.size[1] == window_size[i][1]:
-                size_check = True
-                self.current_size = im.size[0]
+            try:
+                im = Image.frombuffer('RGB', (bmpinfo['bmWidth'], bmpinfo['bmHeight']), bmpstr, 'raw', 'BGRX', 0, 1)
+            except ValueError:
+                self.minimize.emit()
                 break
 
-        if size_check:
-            if not self.current_size == self.img_size:
-                self.auto_load_img(self.current_size)
-        else:
-            warning = QMessageBox.warning(self, '주의', '해상도가 맞지 않습니다.\n지원하는 해상도\n1280x720, 1600x900, 1920x1080',
-                                          QMessageBox.Cancel | QMessageBox.Ok, QMessageBox.Ok)
-            if warning == QMessageBox.Cancel:
-                self.stop()
-                return
+            win32gui.DeleteObject(saveBitMap.GetHandle())
+            saveDC.DeleteDC()
+            mfcDC.DeleteDC()
+            win32gui.ReleaseDC(hwnd, hwndDC)
+
+            window_size = [1280, 1600, 1920]
+            size_check = False
+            for i in range(3):
+                if im.size[0] == window_size[i]:
+                    size_check = True
+                    self.current_size = im.size
+                    break
+
+            if size_check:
+                if not self.current_size == self.img_size:
+                    self.auto_load_img(self.current_size)
+                    logger.info("(%s) %s * %s 리소스 불러오기 끝", self.loc, self.current_size[0], self.current_size[1])
             else:
-                self.autolog()
-                return
+                self.req_resizing.emit()
+                self.sleep(1)
+                continue
 
-        win32gui.DeleteObject(saveBitMap.GetHandle())
-        saveDC.DeleteDC()
-        mfcDC.DeleteDC()
-        win32gui.ReleaseDC(hwnd, hwndDC)
+            if not locate(self.miscs[4], im, grayscale=True, confidence=0.85, region=self.regions[0]) is None:
+                self.auto_mod.emit(0)
+            elif not locate(self.miscs[5], im, grayscale=True, confidence=0.75, region=self.regions[0]) is None:
+                self.auto_mod.emit(1)
 
-        if not locate(self.miscs[4], im, grayscale=True, confidence=0.90, region=self.regions[0]) is None:
-            self.amod = "로테이션"
-            self.radioautoRota.setChecked(True)
-        elif not locate(self.miscs[5], im, grayscale=True, confidence=0.90, region=self.regions[0]) is None:
-            self.amod = "언리미티드"
-            self.radioautoUnli.setChecked(True)
+            if not self.mulligan:
+                # 선후공 체크
+                if not locate(self.miscs[0], im, grayscale=True, confidence=0.90, region=self.regions[1]) is None:
+                    self.first.emit(0)
+                    self.fsdecision = True
+                    logger.info("선공")
+                elif not locate(self.miscs[1], im, grayscale=True, confidence=0.90, region=self.regions[1]) is None:
+                    self.first.emit(1)
+                    self.fsdecision = True
+                    logger.info("후공")
+                # 상대 직업 체크
+                if self.fsdecision:
+                    for icon in self.icons:
+                        if not locate(icon, im, grayscale=True, confidence=0.90, region=self.regions[2]) is None:
+                            self.oppo_craft.emit(self.icons.index(icon))
+                            self.oppocls_al = True
+                            logger.info("상대 직업 체크")
+                            break
+                self.mulligan = self.fsdecision and self.oppocls_al
+            elif self.mulligan and not self.mycls_al:
+                # 내 직업 체크
+                for post in self.posts:
+                    if not locate(post, im, grayscale=True, confidence=0.90, region=self.regions[3]) is None:
+                        self.my_craft.emit(self.posts.index(post))
+                        self.mycls_al = True
+                        logger.info("내 직업 체크")
+            elif self.mulligan and self.mycls_al:
+                if not self.preview:
+                    self.auto_preview.emit()
+                    self.preview = True
+                    logger.info("프리뷰")
 
-        if not self.mulligan:
-            # 선후공 체크
-            if not locate(self.miscs[0], im, grayscale=True, confidence=0.90, region=self.regions[1]) is None:
-                self.first = '선공'
-                self.fsdecision = True
-            elif not locate(self.miscs[1], im, grayscale=True, confidence=0.90, region=self.regions[1]) is None:
-                self.first = '후공'
-                self.fsdecision = True
-            # 상대 직업 체크
-            if self.fsdecision:
-                for icon in self.icons:
-                    if not locate(icon, im, grayscale=True, confidence=0.90, region=self.regions[2]) is None:
-                        self.oppocn = self.icons.index(icon)
-                        self.oppo_cls = self.crafts[self.oppocn]
-                        self.oppocls_al = True
-                        break
-            self.mulligan = self.fsdecision and self.oppocls_al
-        elif self.mulligan and not self.mycls_al:
-            # 내 직업 체크
-            for post in self.posts:
-                if not locate(post, im, grayscale=True, confidence=0.90, region=self.regions[3]) is None:
-                    self.mycn = self.posts.index(post)
-                    self.my_cls = self.crafts[self.mycn]
-                    self.mycls_al = True
-        elif self.mulligan and self.mycls_al:
-            if not self.preview:
-                if self.amod == self.amod_2 and self.my_cls == self.my_cls_2 and self.cb_fix.isChecked():
-                    self.mydeck = self.mydeck_2
-                else:
-                    self.mydeck = "기타"
-                self.opdeck = "기타"
-                self.today = datetime.now().strftime('%Y-%m-%d')
-                self.lb_day.setText(self.today)
-                self.lb_cp.setText(self.ccp)
-                self.lb_mod.setText(self.amod)
-                self.lb_fs.setText(self.first)
-                self.lb_mycls.setText(self.my_cls)
-                self.lb_opcls.setText(self.oppo_cls)
-                mydecklist = d_check(self.amod, self.ccp, self.my_cls)
-                self.cb_mydeck.clear()
-                self.cb_mydeck.addItems(mydecklist)
-                self.cb_mydeck.setCurrentText(self.mydeck)
-                opdecklist = d_check(self.amod, self.ccp, self.oppo_cls)
-                self.cb_opdeck.clear()
-                self.cb_opdeck.addItems(opdecklist)
-                self.cb_opdeck.setCurrentText(self.opdeck)
-                self.preview = True
-
-            # 승패 체크
-            if not locate(self.miscs[3], im, grayscale=False, confidence=0.97, region=self.regions[4]) is None:
-                self.win = '패'
-                self.wldecision = True
-            elif not locate(self.miscs[2], im, grayscale=False, confidence=0.97, region=self.regions[4]) is None:
-                self.win = '승'
-                self.wldecision = True
-            # 결과 출력 및 초기화
-            if self.wldecision:
-                self.logtime = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                self.lb_wl.setText(self.win)
-                self.lb_logtime.setText(self.logtime)
-                self.lb_turn.setText(str(self.aturn))
-                self.timer.cancel()
-                self.alarm()
-                return
-
-        if self.al_work:
-            self.timer = threading.Timer(0.5, self.autolog)
-            self.timer.start()
-
-    @pyqtSlot(str, str)
-    def signal_m(self, clf, text):
-        if clf == "mod":
-            self.atype = text
-            logger.info(text + " 매칭 중")
-        elif clf == "turn":
-            self.aturn = int(text.split('n')[1])
-            logger.info(text + " 종료")
-
-    def auto_mydeck(self):
-        self.mydeck = self.cb_mydeck.currentText()
-
-    def auto_opdeck(self):
-        self.opdeck = self.cb_opdeck.currentText()
-
-    def alarm(self):
-        if self.al_timer == 7:
-            logger.info("매치 종료")
-        if self.al_timer == 0:
-            write_record(self, self.ccp, self.amod, self.my_cls, self.mydeck, self.oppo_cls, self.opdeck,
-                         self.first, self.win, self.atype, self.aturn)
-            logger.info("기록 저장")
-            self.lb_day2.setText(self.today)
-            self.lb_cp2.setText(self.ccp)
-            self.lb_mod2.setText(self.amod)
-            self.lb_fs2.setText(self.first)
-            self.lb_mycls2.setText(self.my_cls)
-            self.lb_mydeck2.setText(self.mydeck)
-            self.lb_opcls2.setText(self.oppo_cls)
-            self.lb_opdeck2.setText(self.opdeck)
-            self.lb_wl2.setText(self.win)
-            self.lb_logtime2.setText(self.logtime)
-            self.lb_turn2.setText(str(self.aturn))
-            self.amod_2 = self.amod
-            self.my_cls_2 = self.my_cls
-            self.mydeck_2 = self.mydeck
-            self.auto_init()
-            load_data(self)
-            self.table_rate()
-            self.lb_alarm.setText('기록이 저장되었습니다.\n1초 후 자동시작')
-            self.al_timer = 7
-            self.timer = threading.Timer(1, self.autolog)
-            self.timer.start()
-            return
-        text = '{}초 후 기록을 자동으로 저장합니다.'.format(self.al_timer)
-        self.lb_alarm.setText(text)
-        self.al_timer -= 1
-        self.timer1 = threading.Timer(1, self.alarm)
-        self.timer1.start()
-
-    def auto_init(self):
-        self.first = ''
-        self.win = ''
-        self.mulligan = False
-        self.fsdecision = False
-        self.oppocls_al = False
-        self.wldecision = False
-        self.mycls_al = False
-        self.my_cls = ""
-        self.mydeck = ""
-        self.oppo_cls = ""
-        self.opdeck = ""
-        self.amod = ""
-        self.aturn = 0
-        self.preview = False
-        self.lb_day.setText('')
-        self.lb_cp.setText('')
-        self.lb_mod.setText('')
-        self.lb_fs.setText('')
-        self.lb_mycls.setText('')
-        self.cb_mydeck.clear()
-        self.lb_opcls.setText('')
-        self.cb_opdeck.clear()
-        self.lb_wl.setText('')
-        self.lb_logtime.setText('')
-        self.lb_turn.setText('')
-        logger.info("라벨 초기화")
+                # 승패 체크
+                if not locate(self.miscs[2], im, grayscale=False, confidence=0.97, region=self.regions[4]) is None:
+                    self.auto_win.emit(0)
+                    self.wldecision = True
+                    logger.info("패")
+                    self.msleep(100)
+                elif not locate(self.miscs[3], im, grayscale=False, confidence=0.97, region=self.regions[4]) is None:
+                    self.auto_win.emit(1)
+                    self.wldecision = True
+                    logger.info("승")
+                    self.msleep(100)
+                # 결과 출력 및 초기화
+                if self.wldecision:
+                    self.auto_result.emit()
+                    self.sleep(4)
+                    self.mulligan = self.fsdecision = self.oppocls_al = False
+                    self.mycls_al = self.preview = self.wldecision = False
+                self.sleep(1)
 
     def stop(self):
-        self.timer.cancel()
-        self.timer1.cancel()
-        self.auto_init()
-        if self.is_watchdog:
-            self.toggle_watchdog()
-        self.al_work = False
-        self.pushal.setEnabled(True)
-        self.pushstop.setEnabled(False)
-        self.lb_alarm.setText('기록 중지')
-        logger.info("기록 중지")
-
-    def closeEvent(self, event):
-        if self.al_work:
-            self.timer.cancel()
-            self.timer1.cancel()
-            event.accept()
-        else:
-            event.accept()
+        self.working = False
+        self.quit()
+        self.wait(1000)
 
 
 class Target:
     import getpass
     username = getpass.getuser()
     watchDir = 'C:/Users/' + username + '/AppData/LocalLow/Cygames/Shadowverse'
-    #watchDir에 감시하려는 디렉토리를 명시한다.
 
     def __init__(self):
-        self.observer = None   #observer객체를 만듦
+        self.observer = None
         self.is_watchdog = False
         self.modsignal = ModSignal()
 
@@ -1399,7 +1572,7 @@ class Handler(FileSystemEventHandler):
         super(Handler, self).__init__(*args, **kwargs)
         self._emitter = emitter
 
-    def on_modified(self, event): #파일, 디렉터리가 수정되면 실행
+    def on_modified(self, event):
         try:
             with open(event.src_path, 'r', encoding='UTF-8') as log:
                 lines = log.read().splitlines()
@@ -1409,20 +1582,20 @@ class Handler(FileSystemEventHandler):
                     logs = lines
             for i in range(len(logs)):
                 if "Matching_ConnectAPI" in logs[i]:
-                    mod = ""
                     if "FreeBattle" in logs[i]:
-                        mod = "일반전"
+                        type = "0"
                     elif "RankBattle" in logs[i]:
-                        mod = "랭크전"
+                        type = "1"
                     elif "Colosseum" in logs[i]:
-                        mod = "그랑프리"
+                        type = "2"
+                    elif "RoomBattle" in logs[i]:
+                        type = "4"
                     else:
-                        print(logs[i])
-                    self._emitter.signal1.emit("mod", mod)
+                        type = "3"
+                    self._emitter.signal1.emit("type", type)
                 elif "FinishTask" in logs[i]:
                     turn = lines[1].split()
                     self._emitter.signal1.emit("turn", turn[0])
-
         except:
             pass
 

@@ -1,0 +1,94 @@
+{
+	"CCP": "RSC",
+	"Rotation": {
+		"RSC": {
+			"Forest": [
+				"Ladica Forest",
+				"Loxis Forest",
+				"Accelerate Forest",
+				"Others"
+			],
+			"Sword": [
+				"Rally Natural Sword",
+				"OTK Sword",
+				"Others"
+			],
+			"Rune": [
+				"Spellboost Rune",
+				"Evolve Rune",
+				"Others"
+			],
+			"Haven": [
+				"Amulet Haven",
+				"Sanctuary Haven",
+				"Others"
+			],
+			"Shadow": [
+				"Machina Shadow",
+				"Aggro Shadow",
+				"Others"
+			],
+			"Dragon": [
+				"Natural Dragon",
+				"Others"
+			],
+			"Blood": [
+				"Epitaph Blood",
+				"Machina Blood",
+				"Wrath Blood",
+				"Others"
+			],
+			"Portal": [
+				"Machina Portal",
+				"Rally Portal",
+				"Others"
+			]
+		}
+	},
+	"Unlimited": {
+		"RSC": {
+			"Forest": [
+				"Loxis Rhino Forest",
+				"Whirlwind Rhino Forest",
+				"Accelerate Forest",
+				"Others"
+			],
+			"Sword": [
+				"Unsheathed Blade Sword",
+				"Others"
+			],
+			"Rune": [
+				"Dimension Shift Rune",
+				"Storm Spellboost Rune",
+				"Chaos Rune",
+				"Others"
+			],
+			"Haven": [
+				"Elana Haven",
+				"Summit Temple Haven",
+				"Jatelant Haven",
+				"Others"
+			],
+			"Shadow": [
+				"Lord Atomy Shadow",
+				"Philosopher Shadow",
+				"Aggro Shadow",
+				"Last Words Shadow",
+				"Others"
+			],
+			"Dragon": [
+				"Phoenix Dragon",
+				"Others"
+			],
+			"Blood": [
+				"Aggro Blood",
+				"Self-harm Blood",
+				"Others"
+			],
+			"Portal": [
+				"Artifact Portal",
+				"Others"
+			]
+		}
+	}
+}
