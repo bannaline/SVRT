@@ -30,19 +30,30 @@ def load_data(self):
 
 
 def last_record(self, j, data):
+    mod_col = [["로테이션", "ローテーション", "Rotation"], ["언리미티드", "アンリミテッド", "Unlimited"]]
+    cls_ko = ['엘프', '로얄', '위치', '비숍', '드래곤', '네크로맨서', '뱀파이어', '네메시스']
+    cls_ja = ["エルフ", "ロイヤル", "ウィッチ", "ビショップ", "ドラゴン", "ネクロマンサー", "ヴァンパイア", "ネメシス"]
+    cls_en = ["Forest", "Sword", "Rune", "Haven", "Dragon", "Shadow", "Blood", "Portal"]
+    fir_sec = [["선공", "先攻", "1st"], ["후공", "後攻", "2nd"]]
+    win_lose = [["승", "勝", "Win"], ["패", "敗", "Lose"]]
     data = str(data)
     if j == 2:
-        if data == "로테이션":
+        if data in mod_col[0]:
             self.radioRecRota.setChecked(True)
-        elif data == "언리미티드":
+        elif data in mod_col[1]:
             self.radioRecUnli.setChecked(True)
         self.rad_mod()
 
     if j == 3:
-        mycls = ['로얄', '위치', '엘프', '비숍', '드래곤', '네크로맨서', '뱀파이어', '네메시스']
-        mycls_btn = [self.radioRoyalMy, self.radioWitchMy, self.radioElfMy, self.radioBishopMy,
+        mycls_btn = [self.radioElfMy, self.radioRoyalMy, self.radioWitchMy, self.radioBishopMy,
                      self.radioDragonMy, self.radioNecroMy, self.radioVampMy, self.radioNemeMy]
-        num = mycls.index(data)
+        try:
+            num = cls_ko.index(data)
+        except:
+            try:
+                num = cls_ja.index(data)
+            except:
+                num = cls_en.index(data)
         mycls_btn[num].setChecked(True)
         self.radio_myjob()
 
@@ -51,10 +62,15 @@ def last_record(self, j, data):
         self.cb_my_arche()
 
     if j == 5:
-        oppocls = ['로얄', '위치', '엘프', '비숍', '드래곤', '네크로맨서', '뱀파이어', '네메시스']
-        oppocls_btn = [self.radioRoyalOppo, self.radioWitchOppo, self.radioElfOppo, self.radioBishopOppo,
+        oppocls_btn = [self.radioElfOppo, self.radioRoyalOppo, self.radioWitchOppo, self.radioBishopOppo,
                        self.radioDragonOppo, self.radioNecroOppo, self.radioVampOppo, self.radioNemeOppo]
-        num = oppocls.index(data)
+        try:
+            num = cls_ko.index(data)
+        except:
+            try:
+                num = cls_ja.index(data)
+            except:
+                num = cls_en.index(data)
         oppocls_btn[num].setChecked(True)
         self.radio_oppojob()
 
@@ -63,16 +79,16 @@ def last_record(self, j, data):
         self.cb_oppo_arche()
 
     if j == 7:
-        if data == '선공':
+        if data in fir_sec[0]:
             self.radioFirst.setChecked(True)
-        elif data == '후공':
+        elif data in fir_sec[1]:
             self.radioSecond.setChecked(True)
         self.rad_fs()
 
     if j == 8:
-        if data == '승':
+        if data in win_lose[0]:
             self.radioWin.setChecked(True)
-        elif data == '패':
+        elif data in win_lose[1]:
             self.radioLose.setChecked(True)
         self.rad_wl()
 
@@ -114,7 +130,12 @@ def cp_list():
 
 
 def ccp_check():
-    with open("decklist.json", "r", encoding='UTF-8') as dli:
+    import configparser
+    config = configparser.ConfigParser()
+    config.read("config.ini")
+    loc = config["locale"]["locale"]
+    path = "./resources/" + loc + "/decklist.json"
+    with open(path, "r", encoding='UTF-8') as dli:
         all_dl = json.load(dli)
     ccp = all_dl["CCP"]
     return ccp
@@ -122,7 +143,12 @@ def ccp_check():
 
 def d_check(a, b, c):
     # a is mod, b is card pack, c is class
-    with open("decklist.json", "r", encoding='UTF-8') as dli:
+    import configparser
+    config = configparser.ConfigParser()
+    config.read("config.ini")
+    loc = config["locale"]["locale"]
+    path = "./resources/" + loc + "/decklist.json"
+    with open(path, "r", encoding='UTF-8') as dli:
         all_dl = json.load(dli)
     try:
         dl = all_dl[a][b][c]
