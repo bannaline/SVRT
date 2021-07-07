@@ -20,6 +20,7 @@ __Usage__
 * This programm captures Shadowverse application screen when you use autologging.
 * So, if Shadowverse application is Full screen mod, autologging is not working.
 * Support for Korean, Japanese, and English.
+* Select language of Shadowverse.
          
 # Special Thanks
 A basic idea for auto logging is from Nio
