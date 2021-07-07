@@ -7,14 +7,20 @@ from datetime import datetime
 
 
 # 데이터 로드
-def load_data(self):
+def load_data(self, loc):
     conn = sqlite3.connect('log.db')
     cursor = conn.cursor()
     result = cursor.execute("SELECT Date, CardPack, Mod, MyJob, MyArche, OppoJob, OppoArche, FirstSecond, WinLose, Turn FROM log ORDER BY LogTime DESC LIMIT 10")
     rows = result.fetchall()
     row_cnt_query = cursor.execute("SELECT * FROM log")
     row_cnt = row_cnt_query.fetchall()
-    sb_msg = '{0}개 기록 검색됨'.format(len(row_cnt))
+    if loc == "ko_KR":
+        text = "{}개의 기록이 검색되었습니다."
+    elif loc == "ja_JP":
+        text = "{}個の記録を検索しました。"
+    else:
+        text = "{} records were found."
+    sb_msg = text.format(len(row_cnt))
     if len(row_cnt) < 10:
         self.tableRecord.setRowCount(len(row_cnt))
     for i, row in enumerate(rows):
