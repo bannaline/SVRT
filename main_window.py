@@ -327,7 +327,7 @@ class Form(QMainWindow, form_class):
         logger.info("초기화끝")
 
         if os.path.isfile('log.db'):
-            load_data(self)
+            load_data(self, self.loc)
         else:
             self.init_data()
         self.table_rate()
@@ -426,7 +426,7 @@ class Form(QMainWindow, form_class):
                             " ※ Anything other than {} is not saved.",
                             "Automatically save the recording after {} seconds.", "Stop recording",
                             "{} is not recorded. Restart data collection after {} seconds"]
-        self.locale = locale_code
+        self.loc = locale_code
 
     # 모드 버튼 이벤트
     def rad_mod(self):
@@ -542,7 +542,7 @@ class Form(QMainWindow, form_class):
     def write_btn(self):
         write_record(self, self.logcp, self.mod, self.myjob, self.myarche,
                      self.oppojob, self.oppoarche, self.fs, self.wl, self.types[1], self.turn)
-        load_data(self)
+        load_data(self, self.loc)
         self.table_rate()
 
     # 데이터 삭제 - 최신 1개만
@@ -559,7 +559,7 @@ class Form(QMainWindow, form_class):
             cursor.execute("DELETE FROM log WHERE LogTime=?", edata[1])
         conn.commit()
         conn.close()
-        load_data(self)
+        load_data(self, self.loc)
         self.table_rate()
 
     # 데이터 수정
@@ -1297,7 +1297,7 @@ class Form(QMainWindow, form_class):
                 self.my_cls_2 = self.my_cls
                 self.mydeck_2 = self.mydeck
             self.auto_init()
-            load_data(self)
+            load_data(self, self.loc)
             self.table_rate()
             self.al_timer = 5
             self.autolog()
