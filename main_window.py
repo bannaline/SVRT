@@ -1235,8 +1235,10 @@ class Form(QMainWindow, form_class):
 
     @pyqtSlot()
     def auto_result(self):
-        if self.atype in self.types[3:]:
+        if self.atype == self.types[3]:
             pass
+        elif self.atype == self.types[4]:
+            self.al_timer = 10
         else:
             self.logtime = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             self.lb_wl.setText(self.win)
@@ -1258,6 +1260,8 @@ class Form(QMainWindow, form_class):
             if self.in_match:
                 self.in_match = False
                 if self.atype == self.types[4]:
+                    self.thread1.working = False
+                    self.thread1.wait()
                     self.auto_result()
 
     def lb_wl_style(self, label, wl):
@@ -1280,7 +1284,7 @@ class Form(QMainWindow, form_class):
                 write_record(self, self.ccp, self.amod, self.my_cls, self.mydeck, self.oppo_cls, self.opdeck,
                              self.first, self.win, self.atype, self.aturn)
                 logger.info("기록 저장")
-            if self.atype != self.types[3]:
+            if self.atype in self.types[:3]:
                 self.lb_day2.setText(self.today)
                 self.lb_cp2.setText(self.ccp)
                 self.lb_mod2.setText(self.amod)
@@ -1296,6 +1300,11 @@ class Form(QMainWindow, form_class):
                 self.amod_2 = self.amod
                 self.my_cls_2 = self.my_cls
                 self.mydeck_2 = self.mydeck
+            if self.atype == self.types[4]:
+                self.thread1.mulligan = self.thread1.fsdecision = self.thread1.oppocls_al = False
+                self.thread1.mycls_al = self.thread1.preview = self.thread1.wldecision = False
+                self.thread1.working = True
+                self.thread1.start()
             self.auto_init()
             load_data(self, self.loc)
             self.table_rate()
@@ -1525,9 +1534,9 @@ class Worker(QThread):
                 # 결과 출력 및 초기화
                 if self.wldecision:
                     self.auto_result.emit()
-                    self.sleep(4)
                     self.mulligan = self.fsdecision = self.oppocls_al = False
                     self.mycls_al = self.preview = self.wldecision = False
+                    self.sleep(4)
                 self.sleep(1)
 
     def stop(self):
