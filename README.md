@@ -13,14 +13,13 @@ __Test environment__
 * Shadowverse resolution: 1280x(720~960), 1600x900, 1920x1080 (All window mode)
 
 __Usage__
-* CPU - probably 15% when it excute, less than 1% when it use autologging
-* RAM - 75~76MB
+* Select language of Shadowverse.
+* Support manual recording also.
 
 # IMPORTANT!!
 * This programm captures Shadowverse application screen when you use autologging.
 * So, if Shadowverse application is Full screen mod, autologging is not working.
 * Support for Korean, Japanese, and English.
-* Select language of Shadowverse.
          
 # Special Thanks
 A basic idea for auto logging is from Nio
