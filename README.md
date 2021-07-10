@@ -14,6 +14,7 @@ __Test environment__
 
 __Usage__
 * Select language of Shadowverse.
+* Run Shadowverse, then push the autologging start button in autologging tab.
 * Support manual recording also.
 
 # IMPORTANT!!
