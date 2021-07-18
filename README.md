@@ -10,7 +10,21 @@ __Test environment__
 * 16GB RAM
 * NVIDIA GeForce GTX 960
 * Windows 10
-* Shadowverse resolution: 1280x(720~960), 1600x900, 1920x1080 (All window mode)
+* Testing
+
+|Resolution|Korean|English|Japanses|
+|---|---|---|---|
+|1024\*768|(2)|(4)|(5)|
+|1280\*720|(1)|(3)|(3)|
+|1600\*900|(1)|(3)|(3)|
+|1920\*1080|(1)|(3)|(3)|
+
+(1) Test complete.
+(2) Under testing.
+(3) Test complete except about Master Point.
+(4) Not tested.
+(5) Not supported.
+* Other resolutions are not tested.
 
 __Usage__
 * Select language of Shadowverse.
