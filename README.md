@@ -14,16 +14,13 @@ __Test environment__
 
 |Resolution|Korean|English|Japanses|
 |---|---|---|---|
-|1024\*768|(2)|(4)|(5)|
-|1280\*720|(1)|(3)|(3)|
-|1600\*900|(1)|(3)|(3)|
-|1920\*1080|(1)|(3)|(3)|
+|1280\*720|(1)|(2)|(3)|
+|1600\*900|(1)|(2)|(3)|
+|1920\*1080|(1)|(2)|(3)|
 
 (1) Test complete.
 (2) Under testing.
 (3) Test complete except about Master Point.
-(4) Not tested.
-(5) Not supported.
 * Other resolutions are not tested.
 
 __Usage__
