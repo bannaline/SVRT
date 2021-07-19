@@ -21,6 +21,7 @@ __Test environment__
 * Other resolutions are not tested.
 
 __Usage__
+* Unzip the file, then Run 'SVRT2.exe'
 * Select language of Shadowverse.
 * Run Shadowverse, then push the autologging start button in autologging tab.
 * Master Point Tracking is required Tesseract-OCR(installed basa dicrectory)
