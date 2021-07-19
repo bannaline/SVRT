@@ -10,17 +10,29 @@ __Test environment__
 * 16GB RAM
 * NVIDIA GeForce GTX 960
 * Windows 10
-* Shadowverse resolution: 1280x(720~960), 1600x900, 1920x1080 (All window mode)
+* Testing
+
+|Resolution|Korean|English|Japanses|
+|---|---|---|---|
+|1280\*720|(1)|(2)|(3)|
+|1600\*900|(1)|(2)|(3)|
+|1920\*1080|(1)|(4)|(4)|
+
+(1) Test complete.
+(2) Under testing.
+(3) Test complete except about Master Point.
+(4) Under modifying.
+* Other resolutions are not tested.
 
 __Usage__
-* CPU - probably 15% when it excute, less than 1% when it use autologging
-* RAM - 75~76MB
+* Select language of Shadowverse.
+* Run Shadowverse, then push the autologging start button in autologging tab.
+* Support manual recording also.
 
 # IMPORTANT!!
 * This programm captures Shadowverse application screen when you use autologging.
 * So, if Shadowverse application is Full screen mod, autologging is not working.
 * Support for Korean, Japanese, and English.
-* Select language of Shadowverse.
          
 # Special Thanks
 A basic idea for auto logging is from Nio
