@@ -4,6 +4,10 @@ import sqlite3
 import pandas as pd
 import json
 from datetime import datetime
+import configparser
+import numpy
+import cv2
+import pytesseract
 
 
 # 데이터 로드
@@ -103,8 +107,9 @@ def last_record(self, j, data):
         self.cb_turn()
 
 
-def write_record(self, a, b, c, d, e, f, g, h, i, j):
+def write_record(self, a, b, c, d, e, f, g, h, i, j, k, l, m):
     # a is cardpack, b is mod, c is myjob, d is myarche, e is oppojob, f is oppoarche, g is first, h is win, i is type
+    # j is turn, k is MP start, l is MP end, m is MP difference
     date = datetime.today().strftime("%Y-%m-%d")
     logtime = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     if c == '':
@@ -113,11 +118,24 @@ def write_record(self, a, b, c, d, e, f, g, h, i, j):
     elif e == '':
         QMessageBox.about(self, '주의', '상대 덱을 선택해주세요.')
         return
-    record = [date, a, b, c, d, e, f, g, h, logtime, i, j]
+    record = [date, a, b, c, d, e, f, g, h, logtime, i, j, k, l, m]
     conn = sqlite3.connect('log.db')
     cursor = conn.cursor()
-    cursor.execute("INSERT INTO log VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", record)
+    cursor.execute("INSERT INTO log VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", record)
     conn.commit()
+    conn.close()
+    
+
+def db_column_check():
+    conn = sqlite3.connect('log.db')
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT MPs FROM log")
+    except:
+        cursor.execute("ALTER TABLE log ADD COLUMN MPs int")
+        cursor.execute("ALTER TABLE log ADD COLUMN MPe int")
+        cursor.execute("ALTER TABLE log ADD COLUMN MPd int")
+        conn.commit()
     conn.close()
 
 
@@ -125,6 +143,13 @@ def write_record(self, a, b, c, d, e, f, g, h, i, j):
 def all_data():
     conn = sqlite3.connect('log.db')
     df = pd.read_sql("SELECT * FROM log", conn)  # 전체 데이터
+    conn.close()
+    return df
+
+
+def all_mpt():
+    conn = sqlite3.connect('mpt.db')
+    df = pd.read_sql("SELECT * FROM mpTracking", conn)  # 전체 데이터
     conn.close()
     return df
 
@@ -162,3 +187,67 @@ def d_check(a, b, c):
         dl = None
     return dl
 
+
+def locale_load():
+    config = configparser.ConfigParser()
+    try:
+        config.read("config.ini")
+        loc = config["locale"]["locale"]
+        if loc == "None":
+            import locale
+            loc = locale.getdefaultlocale()[0]
+            config["locale"]["locale"] = loc
+            with open('config.ini', 'w') as configfile:
+                config.write(configfile)
+        if loc == "ko_KR" or loc == "ja_JP":
+            pass
+        else:
+            loc = "en_US"
+    except:
+        import locale
+        loc = locale.getdefaultlocale()[0]
+        if loc == "ko_KR" or loc == "ja_JP":
+            pass
+        else:
+            loc = "en_US"
+        config.add_section("locale")
+        config["locale"]["locale"] = loc
+        with open('config.ini', 'w') as configfile:
+            config.write(configfile)
+    return loc
+
+
+def ocr_check():
+    config = configparser.ConfigParser()
+    config.read("config.ini")
+    try:
+        pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+        ocr = "1"
+    except:
+        ocr = "0"
+    try:
+        config["options"]["ocr_exist"] = ocr
+        mpt = config["options"]["mp_tracking"]
+    except:
+        try:
+            config.add_section("options")
+        except:
+            pass
+        config["options"]["ocr_exist"] = ocr
+        config["options"]["mp_tracking"] = "0"
+        mpt = "0"
+    finally:
+        with open('config.ini', 'w') as configfile:
+            config.write(configfile)
+    return int(ocr), int(mpt)
+
+
+def mp_ocr(image, region):
+    img = numpy.array(image)
+    img = img[:, :, ::-1].copy()
+    mp_img = img[region[0]:region[1], region[2]:region[3]]
+    mp_gray = cv2.cvtColor(mp_img, cv2.COLOR_BGR2GRAY)
+    th1 = cv2.threshold(mp_gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)[1]
+    mp = pytesseract.image_to_string(th1, lang=None)
+    mp = mp.split("\n")[0]
+    return mp

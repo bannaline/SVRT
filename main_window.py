@@ -1,15 +1,15 @@
 import sys
 import os
 from PyQt5.QtWidgets import QMainWindow, QApplication, QTableWidgetItem, qApp, QMessageBox
-from PyQt5 import QtCore, QtGui
+from PyQt5 import QtCore, QtGui, QtWebEngineWidgets
 from PyQt5.QtCore import pyqtSignal, pyqtSlot, QObject, QThread
 import sqlite3
 import matplotlib.pyplot as plt
 from matplotlib import font_manager, rc, style
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 import pandas as pd
-from datetime import datetime
-from data_manage import load_data, all_data, cp_list, d_check, ccp_check, write_record
+from datetime import datetime, timedelta
+from data_manage import *
 from sub1 import Sub
 from pyautogui import locate
 import threading
@@ -20,7 +20,7 @@ from PIL import Image
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from logger import logger
-from main_window_ts1 import Ui_MainWindow
+from main_window_ts import Ui_MainWindow
 import configparser
 
 # form_class = uic.loadUiType("./main_window.ui")[0]
@@ -48,16 +48,7 @@ class Form(QMainWindow, form_class):
         self.actionJapanese.triggered.connect(lambda: self.retrans_code("ja_JP"))
 
         # 로캘 초기화
-        config = configparser.ConfigParser()
-        config.read("config.ini")
-        loc = config["locale"]["locale"]
-        if loc == "None":
-            import locale
-            loc = locale.getdefaultlocale()[0]
-        if loc == "ko_KR" or loc == "ja_JP":
-            pass
-        else:
-            loc = "en_US"
+        loc = locale_load()
         self.loc = loc
         self.retrans_code(loc)
 
@@ -135,7 +126,7 @@ class Form(QMainWindow, form_class):
         self.comboTurn.currentIndexChanged.connect(self.cb_turn)
 
         # 등록 버튼
-        self.pushRegister.clicked.connect(self.write_btn)
+        self.pushRegister.clicked.connect(lambda: self.write_btn(None, None, None))
 
         # 수정 버튼
         self.pushModify.clicked.connect(self.modify_data)
@@ -288,12 +279,15 @@ class Form(QMainWindow, form_class):
         style.use('ggplot')
 
         # 자동 기록 탭
-        self.tabWidget.tabBarClicked.connect(self.status_check)
+        self.tabWidget.currentChanged.connect(self.tab_clicked)
+        self.tabWidget.setTabEnabled(4, False)
         self.status_list = [self.stelfr, self.stroyalr, self.stwitchr, self.stbishopr, self.stdragonr,
                             self.stnecror, self.stvampr, self.stnemer]
         self.status_list_u = [self.stelfu, self.stroyalu, self.stwitchu, self.stbishopu, self.stdragonu,
                               self.stnecrou, self.stvampu, self.stnemeu]
         self.pushrefresh.clicked.connect(self.status_refresh)
+        self.pushrank.clicked.connect(self.trans_rank)
+        self.pushrank.setEnabled(False)
 
         if len(ccp) == 4:
             self.checkautomini.setCheckState(2)
@@ -322,17 +316,44 @@ class Form(QMainWindow, form_class):
         self.thread1.auto_preview.connect(self.auto_preview)
         self.thread1.auto_win.connect(self.auto_win)
         self.thread1.auto_result.connect(self.auto_result)
+        self.thread1.restore_size.connect(self.autolog)
+        self.thread1.mp_wait.connect(self.mp_wait)
+        self.thread1.mp_result.connect(self.mp_result)
+        self.thread1.mp_error.connect(self.mp_error)
         self.timer1 = threading.Timer(1, self.alarm)
+
+        self.ocr, self.mpt = ocr_check()
+        if self.ocr:
+            self.checkocr.setChecked(True)
+            self.checktracking.setEnabled(True)
+            logger.info("테서렉트 확인 완료")
+        else:
+            logger.info("테서렉트 없음")
+        if self.mpt:
+            self.checktracking.setChecked(True)
+            self.tabWidget.setTabEnabled(4, True)
+            self.arrange_mpt()
+        else:
+            pass
+
+        self.checktracking.clicked.connect(self.tracking_check)
 
         logger.info("초기화끝")
 
         if os.path.isfile('log.db'):
+            db_column_check()
             load_data(self, self.loc)
         else:
             self.init_data()
         self.table_rate()
 
         logger.info("테이블 불러오기 완료")
+
+        self.win_style = "background-color:rgba(255,0,0,20); font-family: " + self.fname
+        self.lose_style = "background-color:rgba(0,0,255,20); font-family: " + self.fname
+        self.init_style = "background-color:rgba(0,0,0,0); font-family: " + self.fname
+        self.ok_style = "background-color:rgba(0,255,0,20); font-family: " + self.fname
+        self.warn_style = "background-color:rgba(255,131,0,50); font-family: " + self.fname
 
     fs = wl = logdate = myjob = myarche = oppojob = oppoarche = deckmod = deckstartdate = deckenddate = ""
     fscheck = wlcheck = deckmodcheck = deckrmodcheck = 0
@@ -342,8 +363,8 @@ class Form(QMainWindow, form_class):
     deckrmod = deckrstartdate = deckrenddate = deckrarche = ""
     al_work = modi = status = status_u = stat_c = retrans = in_match = False
     my_cls = my_cls_2 = oppo_cls = first = win = today = ""
-    amod = amod_2 = atype = mydeck = mydeck_2 = opdeck = logtime = ""
-    mycn = oppocn = aturn = img_size = current_size = 0
+    amod = amod_2 = atype = mydeck = mydeck_2 = opdeck = ""
+    mycn = oppocn = aturn = img_size = current_size = mp_start = mp_end = mp_diff = 0
     log = []
     al_timer = 5
     cll = []
@@ -352,15 +373,18 @@ class Form(QMainWindow, form_class):
     miscs = []
     regions = []
     names = []
-    win_style = "background-color:rgba(255,0,0,20)"
-    lose_style = "background-color:rgba(0,0,255,20)"
-    init_style = "background-color:rgba(0,0,0,0)"
-    ok_style = "background-color:rgba(0,255,0,20)"
 
     # CpDl 버튼 이벤트
     def cpdl(self):
         self.cp_dl = Sub()
         self.cp_dl.show()
+
+    def tab_clicked(self):
+        tab = self.tabWidget.currentIndex()
+        if tab == 3:
+            self.status_check()
+        elif tab == 4:
+            self.mp_graph()
 
     def retrans_code(self, locale_code):
         config = configparser.ConfigParser()
@@ -389,10 +413,13 @@ class Form(QMainWindow, form_class):
             self.types = ["일반전", "랭킹전", "그랑프리", "기타", "친선전"]
             self.msgs = ["경고", "정말 기록을 초기화하겠습니까?", "기간 내 로테이션 전적", "기간 내 언리미티드 전적", "전적없음",
                          "전", "주의", "창을 찾을 수 없어 자동기록이 중지되었습니다.", "창이 최소화되어 자동기록이 중지되었습니다.",
-                         "해상도 조정 필요. (가로해상도: 1280, 1600, 1920)", "안정성을 위해 프로그램을 재시작해주십시오."]
+                         "해상도 조정 필요. (가로해상도: 1280, 1600, 1920 또는 1024*768)", "안정성을 위해 프로그램을 재시작해주십시오."]
             self.lb_msgs = ["턴 정보 없음", "평균", "턴", "개", "기록을 시작하려면 시작 버튼을 누르세요.",
                             "메뉴로 들어가 덱을 확인해주세요.", "데이터 수집 중", "기타", " ※ {} 외는 저장되지 않습니다.",
                             "{}초 후 기록을 자동으로 저장합니다.", "기록 중지", "{}은 기록되지 않습니다. {}초 후 데이터 수집을 재개"]
+            self.lb_msgs2 = ["MP 결과 화면 대기중", "MP 추적 사용 안함", "MP 추적 실패"]
+            self.ref = ["", "시작: ", "최고: ", "최저: ", "종료: ", "판"]
+            self.fname = "맑은 고딕"
         elif locale_code == "ja_JP":
             self.mod = "ローテーション"
             self.crafts = ["エルフ", "ロイヤル", "ウィッチ", "ビショップ", "ドラゴン", "ネクロマンサー", "ヴァンパイア", "ネメシス"]
@@ -408,6 +435,9 @@ class Form(QMainWindow, form_class):
                             "メニューに入りデッキを確認してください。", "データ収集中", "その他",
                             " ※ {}以外は保存されません。", "{}秒後に記録を自動的に保存します。", "記録停止",
                             "{}は記録されません。{}秒後にデータ収集を再開"]
+            self.lb_msgs2 = ["MP結果画面待機中", "MPの追跡を使用しない", "MP追跡失敗"]
+            self.ref = ["", "開始: ", "最高: ", "最低: ", "終了: ", "マッチ"]
+            self.fname = "Meiryo"
         else:
             self.mod = "Rotation"
             self.crafts = ["Forest", "Sword", "Rune", "Haven", "Dragon", "Shadow", "Blood", "Portal"]
@@ -426,6 +456,9 @@ class Form(QMainWindow, form_class):
                             " ※ Anything other than {} is not saved.",
                             "Automatically save the recording after {} seconds.", "Stop recording",
                             "{} is not recorded. Restart data collection after {} seconds"]
+            self.lb_msgs2 = ["Waiting for MP result screen", "Disable MP Tracking", "MP Tracking Failed"]
+            self.ref = ["", "Begin: ", "High: ", "Low: ", "End: ", " Match"]
+            self.fname = "malgun gothic"
         self.loc = locale_code
 
     # 모드 버튼 이벤트
@@ -539,9 +572,9 @@ class Form(QMainWindow, form_class):
         self.turn = int(self.comboTurn.currentText())
 
     # 등록 버튼 / 아키타입 한번 더 로드할것!
-    def write_btn(self):
-        write_record(self, self.logcp, self.mod, self.myjob, self.myarche,
-                     self.oppojob, self.oppoarche, self.fs, self.wl, self.types[1], self.turn)
+    def write_btn(self, num1, num2, num3):
+        write_record(self, self.logcp, self.mod, self.myjob, self.myarche, self.oppojob, self.oppoarche,
+                     self.fs, self.wl, self.types[1], self.turn, num1, num2, num3)
         load_data(self, self.loc)
         self.table_rate()
 
@@ -564,7 +597,12 @@ class Form(QMainWindow, form_class):
 
     # 데이터 수정
     def modify_data(self):
-        self.write_btn()
+        conn = sqlite3.connect('log.db')
+        cursor = conn.cursor()
+        result = cursor.execute("SELECT MPs, MPe, MPd FROM log ORDER BY LogTime DESC LIMIT 1")
+        mdata = result.fetchall()
+        conn.close()
+        self.write_btn(mdata[0][0], mdata[0][1], mdata[0][2])
         self.modi = True
         self.erase_data()
         self.modi = False
@@ -580,11 +618,124 @@ class Form(QMainWindow, form_class):
                 return
         conn = sqlite3.connect('log.db')
         cur = conn.cursor()
-        cur.execute(
-            "CREATE TABLE log(Date text, CardPack text, Mod TEXT, MyJob text, MyArche text, OppoJob text, OppoArche text, FirstSecond text, WinLose text, LogTime TEXT, Type text, Turn int)")
+        query1 = "CREATE TABLE log(Date text, CardPack text, Mod text, MyJob text, MyArche text, OppoJob text, "
+        query2 = "OppoArche text, FirstSecond text, WinLose text, LogTime text, Type text, Turn int, "
+        query3 = "MPs int, MPe int, MPd int)"
+        query = query1 + query2 + query3
+        cur.execute(query)
         conn.commit()
         conn.close()
         self.tableRecord.setRowCount(0)
+
+    def init_mpt(self):
+        if os.path.isfile('mpt.db'):
+            os.remove('mpt.db')
+        if self.checktracking.isChecked():
+            self.create_mpt()
+
+    def create_mpt(self):
+        conn = sqlite3.connect('mpt.db')
+        cur = conn.cursor()
+        q1 = "CREATE TABLE mpTracking(Date text, CardPack text, R_MPstart int, R_MPhigh int, R_MPlow int, R_MPend int, "
+        q2 = "R_Match int, U_MPstart int, U_MPhigh int, U_MPlow int, U_MPend int, U_Match int)"
+        query = q1 + q2
+        cur.execute(query)
+        conn.commit()
+        conn.close()
+        logger.info("MPT 파일 작성")
+        self.arrange_mpt()
+
+    def arrange_mpt(self):
+        df = all_data()
+        if not len(df):
+            return
+        logger.info("MPT 업데이트 시작")
+        first_date = df.iloc[0, 0]
+        date = datetime.strptime(first_date, "%Y-%m-%d")
+        mpt_df = all_mpt()
+        cp = self.ccp
+
+        while 1:
+            date1 = date.strftime("%Y-%m-%d")
+            if date - datetime.now() > timedelta(days=0):
+                break
+            if len(mpt_df[mpt_df["Date"] == date1]):
+                date = date + timedelta(days=1)
+                continue
+            df1 = df[df["Date"] == date1]
+            try:
+                cp = df1.iloc[0, 1]
+            except:
+                date_mp = [date1, cp] + [0] * 10
+                self.mp_record(date_mp)
+                date = date + timedelta(days=1)
+                continue
+
+            df2 = df1[df1["CardPack"] == cp]
+            df3 = df1[df1["CardPack"] != cp]
+            self.write_mp(df2, date1)
+            if len(df3):
+                self.write_mp(df3, date1)
+            date = date + timedelta(days=1)
+
+        logger.info("MPT 업데이트 완료")
+    
+    def write_mp(self, df, date):
+        cp = df.iloc[0, 1]
+        df_r = df[df["Mod"] == self.mods[0]]
+        df_u = df[df["Mod"] == self.mods[1]]
+        df_r = df_r.dropna()
+        df_u = df_u.dropna()
+        if len(df_r):
+            rmps = df_r.iloc[0, 12]
+            rmph = max(df_r["MPs"].max(), df_r["MPe"].max())
+            rmpl = min(df_r["MPs"].min(), df_r["MPe"].min())
+            rmpe = df_r.iloc[len(df_r)-1, 13]
+            rma = len(df_r)
+            rote = [rmps, rmph, rmpl, rmpe, rma]
+            for i, val in enumerate(rote):
+                try:
+                    num = int(val)
+                except:
+                    num = 0
+                rote[i] = num
+        else:
+            rote = [0] * 5
+        if len(df_u):
+            umps = df_u.iloc[0, 12]
+            umph = max(df_u["MPs"].max(), df_u["MPe"].max())
+            umpl = min(df_u["MPs"].min(), df_u["MPe"].min())
+            umpe = df_u.iloc[len(df_u) - 1, 13]
+            uma = len(df_u)
+            unli = [umps, umph, umpl, umpe, uma]
+            for i, val in enumerate(unli):
+                try:
+                    num = int(val)
+                except:
+                    num = 0
+                unli[i] = num
+        else:
+            unli = [0] * 5
+        date_mp = [date, cp] + rote + unli
+        self.mp_record(date_mp)
+
+    def mp_record(self, mps):
+        mpt_df = all_mpt()
+        conn = sqlite3.connect('mpt.db')
+        cursor = conn.cursor()
+        if len(mpt_df[(mpt_df["Date"] == mps[0]) & (mpt_df["CardPack"] == mps[1])]):
+            cursor.execute("DELETE FROM mpTracking WHERE Date = ? and CardPack = ?", mps[0:2])
+        cursor.execute("INSERT INTO mpTracking VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", mps)
+        conn.commit()
+        conn.close()
+
+    def mp_update(self):
+        df = all_data()
+        df = df.sort_values(by="Date", ascending=False)
+        date = df.iloc[0, 0]
+        df1 = df[df["Date"] == date]
+        df1 = df1.sort_values(by="LogTime", ascending=True)
+        self.write_mp(df1, date)
 
     def table_rate(self):
         df = all_data()
@@ -1124,6 +1275,23 @@ class Form(QMainWindow, form_class):
         self.stat_c = True
         self.al_enable()
 
+    def tracking_check(self):
+        if self.checktracking.isChecked():
+            self.mpt = 1
+            if os.path.isfile('mpt.db'):
+                self.arrange_mpt()
+            else:
+                self.create_mpt()
+            self.tabWidget.setTabEnabled(4, True)
+        else:
+            self.mpt = 0
+            self.tabWidget.setTabEnabled(4, False)
+        config = configparser.ConfigParser()
+        config.read("config.ini")
+        config["options"]["mp_tracking"] = str(self.mpt)
+        with open('config.ini', 'w') as configfile:
+            config.write(configfile)
+
     def al_enable(self):
         if self.status and self.status_u:
             self.lb_alarm.setText(self.lb_msgs[4])
@@ -1159,6 +1327,7 @@ class Form(QMainWindow, form_class):
                 logger.warning("디렉토리 오류")
                 return
 
+    @pyqtSlot()
     def autolog(self):
         self.lb_alarm.setText(self.lb_msgs[6])
         self.lb_alarm.setStyleSheet(self.ok_style)
@@ -1166,7 +1335,7 @@ class Form(QMainWindow, form_class):
     @pyqtSlot()
     def not_found(self):
         self.lb_alarm.setText(self.msgs[7])
-        self.lb_alarm.setStyleSheet("background-color:rgba(255,131,0,50)")
+        self.lb_alarm.setStyleSheet(self.warn_style)
         self.pushal.setEnabled(True)
         self.pushstop.setEnabled(False)
         logger.warning("창 못찾음")
@@ -1174,7 +1343,7 @@ class Form(QMainWindow, form_class):
     @pyqtSlot()
     def minimized(self):
         self.lb_alarm.setText(self.msgs[8])
-        self.lb_alarm.setStyleSheet("background-color:rgba(255,131,0,50)")
+        self.lb_alarm.setStyleSheet(self.warn_style)
         self.pushal.setEnabled(True)
         self.pushstop.setEnabled(False)
         logger.warning("창 최소화됨")
@@ -1182,7 +1351,7 @@ class Form(QMainWindow, form_class):
     @pyqtSlot()
     def req_resize(self):
         self.lb_alarm.setText(self.msgs[9])
-        self.lb_alarm.setStyleSheet("background-color:rgba(255,131,0,50)")
+        self.lb_alarm.setStyleSheet(self.warn_style)
 
     @pyqtSlot(int)
     def auto_mod(self, num):
@@ -1205,6 +1374,7 @@ class Form(QMainWindow, form_class):
         text = self.lb_msgs[6] + "(" + self.atype + ")"
         if self.atype != self.types[1]:
             text = text + self.lb_msgs[8].format(self.types[1])
+            self.pushrank.setEnabled(True)
         self.lb_alarm.setText(text)
         if (self.atype in self.types[3:]) or (self.atype == self.types[2] and self.amod == ""):
             return
@@ -1229,28 +1399,48 @@ class Form(QMainWindow, form_class):
         self.opdeck = self.lb_msgs[7]
         self.cb_opdeck.setCurrentText(self.opdeck)
 
+        if self.atype == self.types[4]:
+            self.al_timer = 10
+        elif self.atype == self.types[1] and self.mpt:
+            self.al_timer = 1
+
     @pyqtSlot(int)
     def auto_win(self, num):
         self.win = self.win_lose[num]
 
     @pyqtSlot()
     def auto_result(self):
-        if self.atype == self.types[3]:
-            pass
-        elif self.atype == self.types[4]:
-            self.al_timer = 10
-        else:
-            self.logtime = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        if self.atype in self.types[:3]:
             self.lb_wl.setText(self.win)
             self.lb_wl_style(self.lb_wl, self.win)
-            self.lb_logtime.setText(self.logtime)
             self.lb_turn.setText(str(self.aturn))
+            if self.mpt:
+                self.lb_mpd.setText(str(self.mp_diff))
+            else:
+                self.lb_mpd.setText(self.lb_msgs2[1])
+        logger.info("매치 종료")
         self.alarm()
+
+    @pyqtSlot()
+    def mp_wait(self):
+        self.lb_alarm.setText(self.lb_msgs2[0])
+
+    @pyqtSlot(int, int)
+    def mp_result(self, num1, num2):
+        self.mp_start = num1
+        self.mp_end = num2
+        self.mp_diff = num2 - num1
+
+    @pyqtSlot()
+    def mp_error(self):
+        self.lb_mpd.setText(self.lb_msgs2[2])
+        self.mp_start = self.mp_end = self.mp_diff = None
 
     @pyqtSlot(str, str)
     def signal_m(self, clf, text):
         if clf == "type":
             self.atype = self.types[int(text)]
+            self.thread1.type = text
             logger.info(self.atype + " 매칭 중")
             if not self.in_match:
                 self.in_match = True
@@ -1263,6 +1453,10 @@ class Form(QMainWindow, form_class):
                     self.thread1.working = False
                     self.thread1.wait()
                     self.auto_result()
+
+    def trans_rank(self):
+        self.atype = self.types[1]
+        self.auto_preview()
 
     def lb_wl_style(self, label, wl):
         if wl == self.win_lose[0]:
@@ -1277,13 +1471,14 @@ class Form(QMainWindow, form_class):
         self.opdeck = self.cb_opdeck.currentText()
 
     def alarm(self):
-        if self.al_timer == 5:
-            logger.info("매치 종료")
         if self.al_timer == 0:
             if self.atype == self.types[1]:
                 write_record(self, self.ccp, self.amod, self.my_cls, self.mydeck, self.oppo_cls, self.opdeck,
-                             self.first, self.win, self.atype, self.aturn)
+                             self.first, self.win, self.atype, self.aturn, self.mp_start, self.mp_end, self.mp_diff)
+                self.pushrank.setEnabled(False)
                 logger.info("기록 저장")
+                if self.mpt:
+                    self.mp_update()
             if self.atype in self.types[:3]:
                 self.lb_day2.setText(self.today)
                 self.lb_cp2.setText(self.ccp)
@@ -1295,8 +1490,11 @@ class Form(QMainWindow, form_class):
                 self.lb_opdeck2.setText(self.opdeck)
                 self.lb_wl2.setText(self.win)
                 self.lb_wl_style(self.lb_wl2, self.win)
-                self.lb_logtime2.setText(self.logtime)
                 self.lb_turn2.setText(str(self.aturn))
+                if self.mp_diff is None:
+                    self.lb_mpd2.setText(self.lb_msgs2[2])
+                else:
+                    self.lb_mpd2.setText(str(self.mp_diff))
                 self.amod_2 = self.amod
                 self.my_cls_2 = self.my_cls
                 self.mydeck_2 = self.mydeck
@@ -1328,7 +1526,6 @@ class Form(QMainWindow, form_class):
         self.oppo_cls = ""
         self.opdeck = ""
         self.amod = ""
-        self.atype = ""
         self.aturn = 0
         self.lb_day.setText("")
         self.lb_cp.setText("")
@@ -1339,9 +1536,8 @@ class Form(QMainWindow, form_class):
         self.lb_opcls.setText("")
         self.cb_opdeck.clear()
         self.lb_wl.setText("")
-        self.lb_wl.setStyleSheet(self.init_style)
-        self.lb_logtime.setText("")
         self.lb_turn.setText("")
+        self.lb_mpd.setText("")
         logger.info("라벨 초기화")
 
     def stop(self):
@@ -1357,7 +1553,87 @@ class Form(QMainWindow, form_class):
         self.pushstop.setEnabled(False)
         self.lb_alarm.setText(self.lb_msgs[10])
         self.lb_alarm.setStyleSheet(self.init_style)
+        self.thread1.mulligan = self.thread1.fsdecision = self.thread1.oppocls_al = False
+        self.thread1.mycls_al = self.thread1.preview = self.thread1.wldecision = False
+        self.thread1.mp_start = self.thread1.mp_end = None
         logger.info("기록 중지")
+
+    def mp_graph(self):
+        mpt = all_mpt()
+        mpt_r = mpt.iloc[:, [0, 2, 3, 4, 5, 6]]
+        mpt_u = mpt.iloc[:, [0, 7, 8, 9, 10, 11]]
+        mpt_r = mpt_r[mpt_r["R_MPhigh"] != 0].copy()
+        mpt_u = mpt_u[mpt_u["U_MPhigh"] != 0].copy()
+        mpts = [mpt_r, mpt_u]
+        rh_text = []
+        uh_text = []
+        h_text = [rh_text, uh_text]
+        vrh_text = []
+        vuh_text = []
+        vh_text = [vrh_text, vuh_text]
+        for i, df in enumerate(mpts):
+            if not len(df):
+                continue
+            df.columns = ["Date", "Open", "High", "Low", "Close", "Volume"]
+            if len(df) > 15:
+                df = df.tail(15)
+            ref = ["", "시작: ", "최고: ", "최저: ", "종료: "]
+            for j in range(len(df)):
+                text = ""
+                for k in range(5):
+                    text += self.ref[k] + str(df.iloc[j, k])
+                    if k == 4:
+                        break
+                    text += "<br>"
+                h_text[i].append(text)
+                vh_text[i].append(str(df.iloc[j, 5]) + self.ref[5])
+            df.loc[:, "Date"] = pd.to_datetime(df["Date"])
+            mpts[i] = df.set_index("Date")
+            
+        import plotly.graph_objs as go
+        import plotly.subplots as ms
+
+        browser = [self.webView1, self.webView2]
+        for i in range(2):
+            if not len(mpts[i]):
+                continue
+            candle1 = go.Candlestick(x=mpts[i].index, open=mpts[i]['Open'], high=mpts[i]['High'],
+                                     low=mpts[i]['Low'], close=mpts[i]['Close'],
+                                     increasing_line_color='red', decreasing_line_color='blue',
+                                     hovertext=h_text[i], hoverinfo='text')
+            volume_bar1 = go.Bar(x=mpts[i].index, y=mpts[i]['Volume'], marker_color='green',
+                                 hovertext=vh_text[i], hoverinfo='text')
+
+            fig3 = ms.make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.02)
+            fig3.add_trace(candle1, row=1, col=1)
+            fig3.add_trace(volume_bar1, row=2, col=1)
+            fig3['layout']['yaxis1'].update(domain=[0.2, 1])
+            fig3['layout']['yaxis2'].update(domain=[0, 0.18])
+
+            fig3.update_layout(showlegend=False, yaxis1_title='Master Point', yaxis2_title='Match', xaxis2_title='Date',
+                               xaxis1_rangeslider_visible=False, xaxis2_rangeslider_visible=False,
+                               xaxis_tickformat='%B-%d')
+            browser[i].setHtml(fig3.to_html(include_plotlyjs='cdn'))
+
+        df = all_data()
+        df_r = df[df["Mod"] == self.mods[0]].dropna()
+        df_u = df[df["Mod"] == self.mods[1]].dropna()
+        df_r = df_r.iloc[:, [12, 13]].tail(50).copy()
+        df_u = df_u.iloc[:, [12, 13]].tail(50).copy()
+        df2 = [df_r, df_u]
+        browser1 = [self.webView3, self.webView4]
+        for i, df in enumerate(df2):
+            if not len(df):
+                continue
+            point = [int(df.iloc[0, 0])]
+            for j in range(len(df)):
+                point.append(int(df.iloc[j, 1]))
+            fig = go.Figure()
+            trace = go.Scatter(y=point, mode='lines', hoverinfo='y')
+            fig.update_xaxes(title_text='Match')
+            fig.update_yaxes(title_text='Master Point')
+            fig.add_trace(trace)
+            browser1[i].setHtml(fig.to_html(include_plotlyjs='cdn'))
 
     def closeEvent(self, event):
         if self.al_work:
@@ -1383,13 +1659,21 @@ class Worker(QThread):
     auto_preview = pyqtSignal()
     auto_win = pyqtSignal(int)
     auto_result = pyqtSignal()
+    restore_size = pyqtSignal()
+    mp_wait = pyqtSignal()
+    mp_result = pyqtSignal(int, int)
+    mp_error = pyqtSignal()
     current_size = img_size = 0
-    mulligan = fsdecision = oppocls_al = mycls_al = preview = wldecision = False
+    mp_start = mp_end = None
+    size_restore = False
+    mulligan = fsdecision = oppocls_al = mycls_al = preview = wldecision = mp_check = False
+    loc = locale_load()
+    type = ""
 
     def auto_load_img(self, size):
-        config = configparser.ConfigParser()
-        config.read("config.ini")
-        self.loc = config["locale"]["locale"]
+        ocr, self.mp_check = ocr_check()
+        self.mp_check = int(self.mp_check)
+        self.loc = locale_load()
         logger.info(str(size[0]) + " 이미지 불러오기 시작")
         path = "./resources/" + self.loc + "/" + str(size[0]) + "/"
         bloodicon = Image.open(path + "BloodIcon.png")
@@ -1416,17 +1700,29 @@ class Worker(QThread):
         img_d = Image.open(path + "Defeat.png")
         img_r = Image.open(path + "rota.png")
         img_u = Image.open(path + "unli.png")
-        self.miscs = [img1, img2, img_v, img_d, img_r, img_u]
-        # [0]: 로테/언리, [1]: 선공/후공, [2]: 상대 직업, [3]: 내 직업, [4]: 승/패
+        img_a = Image.open(path + "Again.png")
+        self.miscs = [img1, img2, img_v, img_d, img_r, img_u, img_a]
+        # [0]: 로테/언리, [1]: 선공/후공, [2]: 상대 직업, [3]: 내 직업, [4]: 승/패, [5]: 한번 더 대전, [6]: MP 영역
         if size[0] == 1280:
-            self.regions = [(615, int((size[1] - 720) / 2) + 20, 55, 75), (0, 0, 200, 150), (1000, 0, 280, 45),
-                            (0, size[1] - 230, 220, 100), (150, int((size[1] - 720) / 2) + 45, 240, 35)]
+            ver_half = int(((size[1]) - 720) / 2)
+            self.regions = [(615, ver_half + 20, 55, 75), (5, 5, 120, 100), (1000, 0, 280, 45),
+                            (0, size[1] - 230, 220, 100), (150, ver_half + 45, 240, 35),
+                            (545, size[1] - 100, 95, 70), (ver_half + 410, ver_half + 490, 650, 820)]
         elif size[0] == 1600:
-            self.regions = [(770, int((size[1] - 900) / 2) + 30, 60, 75), (15, 10, 120, 95), (1355, 18, 45, 45),
-                            (30, size[1] - 275, 220, 100), (170, int((size[1] - 900) / 2) + 55, 310, 40)]
+            ver_half = int(((size[1]) - 900) / 2)
+            self.regions = [(770, ver_half + 30, 60, 75), (15, 10, 120, 95), (1325, 18, 125, 65),
+                            (30, size[1] - 275, 220, 100), (170, ver_half + 55, 310, 40),
+                            (680, size[1] - 130, 130, 90), (ver_half + 520, ver_half + 600, 810, 1020)]
+        elif size[0] == 1024:
+            ver_half = int(((size[1]) - 576) / 2)
+            self.regions = [(490, ver_half + 15, 40, 70), (5, 5, 90, 70), (850, 0, 70, 50),
+                            (20, size[1] - 176, 160, 90), (120, ver_half + 40, 200, 30),
+                            (440, size[1] - 80, 70, 60), (ver_half + 340, ver_half + 390, 515, 650)]
         else:
-            self.regions = [(925, int((size[1] - 1080) / 2) + 40, 70, 80), (20, 13, 145, 110), (1630, 23, 50, 50),
-                            (40, size[1] - 320, 255, 110), (210, int((size[1] - 1080) / 2) + 75, 360, 50)]
+            ver_half = int(((size[1]) - 1080) / 2)
+            self.regions = [(925, ver_half + 40, 70, 80), (20, 13, 145, 110), (1550, 23, 200, 50),
+                            (40, size[1] - 320, 255, 110), (210, ver_half + 75, 360, 50),
+                            (830, size[1] - 150, 130, 100), (ver_half + 620, ver_half + 720, 970, 1210)]
         self.img_size = size
         logger.info("이미지 불러오기 끝")
 
@@ -1478,15 +1774,29 @@ class Worker(QThread):
                 if not self.current_size == self.img_size:
                     self.auto_load_img(self.current_size)
                     logger.info("(%s) %s * %s 리소스 불러오기 끝", self.loc, self.current_size[0], self.current_size[1])
+                if self.size_restore:
+                    self.size_restore = False
+                    self.restore_size.emit()
             else:
                 self.req_resizing.emit()
+                self.size_restore = True
                 self.sleep(1)
                 continue
 
-            if not locate(self.miscs[4], im, grayscale=True, confidence=0.85, region=self.regions[0]) is None:
+            if not locate(self.miscs[4], im, grayscale=True, confidence=0.75, region=self.regions[0]) is None:
                 self.auto_mod.emit(0)
+                image = im.convert("RGB")
+                try:
+                    self.mp_start = int(mp_ocr(image, self.regions[6]))
+                except:
+                    pass
             elif not locate(self.miscs[5], im, grayscale=True, confidence=0.75, region=self.regions[0]) is None:
                 self.auto_mod.emit(1)
+                image = im.convert("RGB")
+                try:
+                    self.mp_start = int(mp_ocr(image, self.regions[6]))
+                except:
+                    pass
 
             if not self.mulligan:
                 # 선후공 체크
@@ -1501,7 +1811,7 @@ class Worker(QThread):
                 # 상대 직업 체크
                 if self.fsdecision:
                     for icon in self.icons:
-                        if not locate(icon, im, grayscale=True, confidence=0.90, region=self.regions[2]) is None:
+                        if not locate(icon, im, grayscale=True, confidence=0.80, region=self.regions[2]) is None:
                             self.oppo_craft.emit(self.icons.index(icon))
                             self.oppocls_al = True
                             logger.info("상대 직업 체크")
@@ -1510,11 +1820,11 @@ class Worker(QThread):
             elif self.mulligan and not self.mycls_al:
                 # 내 직업 체크
                 for post in self.posts:
-                    if not locate(post, im, grayscale=True, confidence=0.90, region=self.regions[3]) is None:
+                    if not locate(post, im, grayscale=True, confidence=0.85, region=self.regions[3]) is None:
                         self.my_craft.emit(self.posts.index(post))
                         self.mycls_al = True
                         logger.info("내 직업 체크")
-            elif self.mulligan and self.mycls_al:
+            elif self.mulligan and self.mycls_al and not self.wldecision:
                 if not self.preview:
                     self.auto_preview.emit()
                     self.preview = True
@@ -1525,24 +1835,43 @@ class Worker(QThread):
                     self.auto_win.emit(0)
                     self.wldecision = True
                     logger.info("패")
-                    self.msleep(100)
+                    self.msleep(50)
                 elif not locate(self.miscs[3], im, grayscale=False, confidence=0.97, region=self.regions[4]) is None:
                     self.auto_win.emit(1)
                     self.wldecision = True
                     logger.info("승")
-                    self.msleep(100)
+                    self.msleep(50)
+
+            elif self.wldecision:
                 # 결과 출력 및 초기화
-                if self.wldecision:
+                if self.type == "1" and self.mp_check:
+                    self.mp_wait.emit()
+                    if not locate(self.miscs[6], im, grayscale=True, confidence=0.75, region=self.regions[5]) is None:
+                        image = im.convert("RGB")
+                        self.mp_end = mp_ocr(image, self.regions[6])
+                        try:
+                            self.mp_result.emit(int(self.mp_start), int(self.mp_end))
+                            logger.info("MP: {}, {}".format(self.mp_start, self.mp_end))
+                        except:
+                            logger.warning("MP Error: {}, {}".format(self.mp_start, self.mp_end))
+                            self.mp_error.emit()
+                        self.auto_result.emit()
+                        self.mulligan = self.fsdecision = self.oppocls_al = False
+                        self.mycls_al = self.preview = self.wldecision = False
+                        self.mp_start = self.mp_end = None
+
+                else:
                     self.auto_result.emit()
                     self.mulligan = self.fsdecision = self.oppocls_al = False
                     self.mycls_al = self.preview = self.wldecision = False
-                    self.sleep(4)
-                self.sleep(1)
+                    self.mp_start = self.mp_end = None
+
+            self.sleep(1)
 
     def stop(self):
         self.working = False
         self.quit()
-        self.wait(1000)
+        self.wait(1500)
 
 
 class Target:

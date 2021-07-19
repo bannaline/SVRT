@@ -9,7 +9,7 @@
 
 
 from PyQt5 import QtCore, QtGui, QtWidgets
-import configparser
+from data_manage import locale_load
 
 
 class Ui_Form(object):
@@ -17,9 +17,7 @@ class Ui_Form(object):
         Form.setObjectName("Form")
         Form.setWindowModality(QtCore.Qt.ApplicationModal)
         Form.resize(689, 299)
-        config = configparser.ConfigParser()
-        config.read("config.ini")
-        loc = config["locale"]["locale"]
+        loc = locale_load()
         if loc == "ko_KR":
             fname = "맑은 고딕"
         elif loc == "ja_JP":

@@ -6,7 +6,7 @@ from matplotlib import font_manager, rc, style
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 import pandas as pd
 from statics_ts import Ui_Form
-import configparser
+from data_manage import locale_load
 
 
 form = Ui_Form
@@ -20,9 +20,7 @@ class Static(QWidget, form):
         self.trans = QtCore.QTranslator(self)
         self.retranslateUi(self)
 
-        config = configparser.ConfigParser()
-        config.read("config.ini")
-        self.loc = config["locale"]["locale"]
+        self.loc = locale_load()
 
         self.retrans_code(self.loc)
 
