@@ -12,7 +12,7 @@ __Test environment__
 * Windows 10
 * Testing
 
-|Resolution|Korean|English|Japanses|
+|Resolution|Korean|English|Japanse|
 |---|---|---|---|
 |1280\*720|O|O|O|
 |1600\*900|O|O|O|
