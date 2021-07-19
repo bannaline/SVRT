@@ -14,24 +14,21 @@ __Test environment__
 
 |Resolution|Korean|English|Japanses|
 |---|---|---|---|
-|1280\*720|(1)|(2)|(3)|
-|1600\*900|(1)|(2)|(3)|
-|1920\*1080|(1)|(4)|(4)|
+|1280\*720|O|O|O|
+|1600\*900|O|O|O|
+|1920\*1080|O|O|O|
 
-(1) Test complete.
-(2) Under testing.
-(3) Test complete except about Master Point.
-(4) Under modifying.
 * Other resolutions are not tested.
 
 __Usage__
 * Select language of Shadowverse.
 * Run Shadowverse, then push the autologging start button in autologging tab.
+* Master Point Tracking is required Tesseract-OCR(installed basa dicrectory)
 * Support manual recording also.
 
 # IMPORTANT!!
 * This programm captures Shadowverse application screen when you use autologging.
-* So, if Shadowverse application is Full screen mod, autologging is not working.
+* So, if Shadowverse application is Full screen mod except 1920\*1080, autologging is not working.
 * Support for Korean, Japanese, and English.
          
 # Special Thanks
