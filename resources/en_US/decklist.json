@@ -3,7 +3,7 @@
 	"Rotation": {
 		"RSC": {
 			"Forest": [
-				"Ladica Forest",
+				"Combo Forest",
 				"Loxis Forest",
 				"Accelerate Forest",
 				"Others"
@@ -14,21 +14,24 @@
 				"Others"
 			],
 			"Rune": [
+				"Evo Rune",
+				"Mysteria Rune",
 				"Spellboost Rune",
-				"Evolve Rune",
 				"Others"
 			],
 			"Haven": [
 				"Amulet Haven",
 				"Sanctuary Haven",
+				"Ward Haven",
 				"Others"
 			],
 			"Shadow": [
+				"Last Words Shadow",
 				"Machina Shadow",
-				"Aggro Shadow",
 				"Others"
 			],
 			"Dragon": [
+				"Natural Evolve Dragon",
 				"Natural Dragon",
 				"Others"
 			],

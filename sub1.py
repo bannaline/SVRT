@@ -1,11 +1,10 @@
 from PyQt5.QtWidgets import QApplication, QDialog, QInputDialog, QMessageBox
 from PyQt5 import QtCore
-from data_manage import d_check, ccp_check, cp_list
+from data_manage import d_check, ccp_check, cp_list, locale_load
 import sys
 import json
 import re
 from cpdl import Ui_Cpdl
-import configparser
 
 
 sub_form = Ui_Cpdl
@@ -24,9 +23,7 @@ class Sub(QDialog, sub_form):
         cls_en = ["Forest", "Sword", "Rune", "Haven", "Shadow", "Dragon", "Blood", "Portal"]
         self.clss = [cls_ko, cls_ja, cls_en]
 
-        config = configparser.ConfigParser()
-        config.read("config.ini")
-        self.loc = config["locale"]["locale"]
+        self.loc = locale_load()
         self.retrans_code(self.loc)
 
         self.radiorota.clicked.connect(self.cpdl_mod)
@@ -67,7 +64,7 @@ class Sub(QDialog, sub_form):
             rb[i].clicked.connect(lambda state, x=i: self.replace(x))
 
     cp = ''
-    cgs_check = False
+    cgs_check = cpm_check = False
     fdl = {}
     locales = ["ko_KR", "ja_JP", "en_US"]
     etcs = [["기타"], ["その他"], ["Others"]]
@@ -94,7 +91,7 @@ class Sub(QDialog, sub_form):
                          "새로운 카드팩", "이전 카드팩에서 덱 리스트를 가져오겠습니까?", "저장",
                          "변경사항이 있습니다. 저장하시겠습니까?"]
             self.msgs2 = ["{} 덱 추가", "추가할 {} 덱을 입력하세요.", "{} 덱 수정", "{}의 덱 이름을 수정합니다.", "주의",
-                          "존재하지 않는 카드팩이 현재 카드팩으로 설정되어 있습니다."]
+                          "존재하지 않는 카드팩이 현재 카드팩으로 설정되어 있습니다.", "안정성을 위해 프로그램을 재시작해주십시오."]
             self.etc = ["기타"]
         elif locale_code == "ja_JP":
             self.mods = ["ローテーション", "アンリミテッド"]
@@ -107,7 +104,8 @@ class Sub(QDialog, sub_form):
                          "新しいカードパック", "前のカードパックからデッキリストをインポートしますか？", "保存",
                          "変更があります。保存しますか？"]
             self.msgs2 = ["{} デッキに追加", "追加する {} デッキを入力してください。", "{} デッキの修正",
-                          "{}のデッキの名前を変更します。", "注意", "存在していないカードパックが現在のカードパックに設定されています。"]
+                          "{}のデッキの名前を変更します。", "注意", "存在していないカードパックが現在のカードパックに設定されています。",
+                          "安定性のためのプログラムを再起動してください。"]
             self.etc = ["その他"]
         else:
             self.mods = ["Rotation", "Unlimited"]
@@ -122,7 +120,8 @@ class Sub(QDialog, sub_form):
                          "There are changes. Save?"]
             self.msgs2 = ["Add {} deck", "Please enter the {} deck you want to add.", "Rename {} deck",
                           "Rename the {} deck.", "Warning",
-                          "A expansion that does not exist is set as a current expansion."]
+                          "A expansion that does not exist is set as a current expansion.",
+                          "Please restart the program for stability."]
             self.etc = ["Others"]
 
     def ncp(self):
@@ -186,6 +185,7 @@ class Sub(QDialog, sub_form):
                 all_dl['CCP'] = ccp
                 with open(path, 'w', encoding='UTF-8') as file:
                     file.write(json.dumps(all_dl, ensure_ascii=False, indent='\t'))
+            self.cpm_check = True
 
     def list_renew(self):
         error_check = False
@@ -306,10 +306,13 @@ class Sub(QDialog, sub_form):
         self.fdl = fdl
 
     def changes_check(self):
-        if self.cgs_check:
-            pass
-        else:
+        if not self.cgs_check:
             self.cgs_check = True
+
+    def ccp_mo_check(self):
+        if self.cpm_check:
+            QMessageBox.warning(self, self.msgs2[4], self.msgs2[6])
+            self.cpm_check = False
 
     def closeEvent(self, event):
         ccp = ccp_check()
@@ -323,12 +326,15 @@ class Sub(QDialog, sub_form):
                                          QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel, QMessageBox.Yes)
             if reply == QMessageBox.Yes:
                 self.save_renew()
+                self.ccp_mo_check()
                 event.accept()
             elif reply == QMessageBox.No:
+                self.ccp_mo_check()
                 event.accept()
             else:
                 event.ignore()
         else:
+            self.ccp_mo_check()
             event.accept()
 
 
