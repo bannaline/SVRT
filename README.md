@@ -29,7 +29,7 @@ __Usage__
 
 # IMPORTANT!!
 * This programm captures Shadowverse application screen when you use autologging.
-* So, if Shadowverse application is Full screen mod except 1920\*1080, autologging is not working.
+* So, if Shadowverse application is Full screen mod which resolution of Shadowverse is not equal resolution of display, autologging is not working.
 * Support for Korean, Japanese, and English.
          
 # Special Thanks
